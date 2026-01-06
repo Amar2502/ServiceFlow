@@ -10,5 +10,6 @@ export const config = {
     DB_USER: process.env.DB_USER || "postgres",
     DB_PASSWORD: process.env.DB_PASSWORD || "amar2502",
     DB_NAME: process.env.DB_NAME || "serviceflow",
+    JWT_SECRET: process.env.JWT_SECRET || "secret",
 
 }
