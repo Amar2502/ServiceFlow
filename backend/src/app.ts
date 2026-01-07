@@ -2,6 +2,9 @@ import express from "express";
 import authRouter from "./routes/authroute";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import apiKeyRouter from "./routes/apiroute";
+import { authmiddleware } from "./middlewares/auth";
+
 const app = express();
 
 app.use(express.json());
@@ -9,5 +12,6 @@ app.use(cookieParser());
 app.use(cors());
 
 app.use("/api/auth", authRouter);
+app.use("/api/apikey",authmiddleware, apiKeyRouter);
 
 export default app;
