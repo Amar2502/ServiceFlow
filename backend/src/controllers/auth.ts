@@ -23,6 +23,8 @@ export const register = async (req: Request, res: Response) => {
     return;
   }
 
+  console.log(email, password, tenantName);
+
   const normalizedEmail = email.trim().toLowerCase();
   
   const client = await pool.connect();
@@ -66,7 +68,11 @@ export const register = async (req: Request, res: Response) => {
     { expiresIn: "30d" }
     );  
 
+    console.log(token);
+
     res.cookie("token", token, { httpOnly: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
+
+    console.log("User registered successfully");
 
     res.status(201).json({
       userId: userResult.rows[0].id,
