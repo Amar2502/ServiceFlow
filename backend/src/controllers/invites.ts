@@ -90,9 +90,15 @@ export const loginWithInvite = async (req: Request, res: Response) => {
       invite.id,
     ]);
     const userResult = await client.query(
-      "INSERT INTO users (tenant_id, email, password_hash, role) VALUES ($1, $2, $3, $4)",
+      "INSERT INTO users (tenant_id, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id",
       [invite.tenant_id, normalizedEmail, passwordHash, invite.role]
     );
+
+    const employeeResult = await client.query(
+      "INSERT INTO employees (tenant_id, user_id) VALUES ($1, $2) RETURNING id",
+      [invite.tenant_id, userResult.rows[0].id]
+    );
+
     await client.query("COMMIT");
 
     const authtoken: string = jwt.sign(
@@ -108,6 +114,7 @@ export const loginWithInvite = async (req: Request, res: Response) => {
     res.status(200).json({ 
         userId: userResult.rows[0].id,
         tenantId: invite.tenant_id,
+        employeeId: employeeResult.rows[0].id,
         token: authtoken,
         role: invite.role,
         message: "Invite login successful" });
