@@ -96,3 +96,31 @@ export const restoreEmployee = async (req: Request, res: Response) => {
     }
 
 }
+
+export const mapEmployeeToDepartment = async (req: Request, res: Response) => {
+    
+    const { employeeId, departmentId } = req.body as { tenantId: string, employeeId: string, departmentId: string };
+    
+    if (!employeeId || !departmentId) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+    
+    const tenantId = req.user?.tenantId;
+
+    if (!tenantId) {
+        res.status(400).json({ message: "Unauthorized" });
+        return;
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("UPDATE employees SET department_id = $1 WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL", [departmentId, employeeId, tenantId]);
+        res.status(200).json({ message: "Employee mapped to department successfully" });
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+}

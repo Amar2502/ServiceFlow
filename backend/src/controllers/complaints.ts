@@ -138,3 +138,53 @@ export const restoreComplaint = async (req: Request, res: Response) => {
     }
 
 }
+
+export const assignComplaintToAssigneeThroughML = async (req: Request, res: Response) => {
+    
+    const { tenantId, complaintId, assigneeType, assigneeId } = req.body as { tenantId: string, complaintId: string, assigneeType: string, assigneeId: string };
+    
+    if (!tenantId || !complaintId || !assigneeType || !assigneeId) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("INSERT INTO assignments (tenant_id, complaint_id, assignee_type, assignee_id) VALUES ($1, $2, $3, $4)", [tenantId, complaintId, assigneeType, assigneeId]);
+        res.status(200).json({ message: "Complaint assigned to " + assigneeType + " successfully" });
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+
+}
+
+export const assignComplaintToEmployee = async (req: Request, res: Response) => {
+    
+    const { complaintId, employeeId } = req.body as { complaintId: string, employeeId: string };
+
+    if (!complaintId || !employeeId) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+
+    const tenantId = req.user?.tenantId;
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("INSERT INTO assignments (tenant_id, complaint_id, assignee_type, assignee_id) VALUES ($1, $2, $3, $4)", [tenantId, complaintId, "EMPLOYEE", employeeId]);
+        res.status(200).json({ 
+            id: complaintId,
+            assignedTo: employeeId,
+            message: "Complaint assigned to employee successfully" 
+        });
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+    
+}

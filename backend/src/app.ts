@@ -7,6 +7,7 @@ import inviteRouter from "./routes/inviteroute";
 import employeeRouter from "./routes/employeeroutes";
 import complaintRouter from "./routes/complaintroute";
 import tenantRouter from "./routes/tenantroute";
+import departmentRouter from "./routes/departmentroute";
 
 const app = express();
 
@@ -20,5 +21,6 @@ app.use("/api/invite", inviteRouter);
 app.use("/api/employees", employeeRouter);
 app.use("/api/complaints", complaintRouter);
 app.use("/api/tenant", tenantRouter);
+app.use("/api/departments", departmentRouter);
 
 export default app;
