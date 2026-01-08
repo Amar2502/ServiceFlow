@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS departments (
   
   name TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT now(),
+
+  deleted_at TIMESTAMP,
   
   UNIQUE (tenant_id, name)
 );

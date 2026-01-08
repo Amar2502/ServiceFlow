@@ -10,7 +10,7 @@ router.post("/create", apiKeyAuth, createComplaint);
 router.patch("/update-status", adminmiddleware, updateComplaintStatus);
 router.patch("/delete", adminmiddleware, deleteComplaint);
 router.patch("/restore", adminmiddleware, restoreComplaint);
-router.patch("/assign-to-employee", assignComplaintToEmployee);
-router.patch("/assign-to-assignee-through-ml", adminmiddleware, assignComplaintToAssigneeThroughML);
+router.patch("/assign-to-employee", adminmiddleware, assignComplaintToEmployee);
+router.patch("/assign-to-assignee-through-ml", assignComplaintToAssigneeThroughML);
 
 export default router;
