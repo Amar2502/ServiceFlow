@@ -61,3 +61,80 @@ export const getAllComplaints = async (req: Request, res: Response) => {
     }
 
 }
+
+export const updateComplaintStatus = async (req: Request, res: Response) => {
+
+    const { complaintId, status } = req.body as { complaintId: string, status: string };
+
+    console.log(complaintId, status);
+
+    if (!complaintId || !status) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+
+    const client = await pool.connect();
+
+    try {
+
+        const result = await client.query("UPDATE complaints SET status = $1 WHERE id = $2 RETURNING id, status", [status, complaintId]);
+
+        console.log(result.rows);
+
+        res.status(200).json({ 
+            id: result.rows[0].id,
+            status: result.rows[0].status,
+            message: "Complaint status updated successfully" 
+        });
+
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+
+}
+
+export const deleteComplaint = async (req: Request, res: Response) => {
+
+    const { complaintId } = req.body as { tenantId: string, complaintId: string };
+
+    if (!complaintId) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("UPDATE complaints SET deleted_at = NOW() WHERE id = $1", [complaintId]);
+        res.status(200).json({ message: "Complaint deleted successfully" });
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+
+}
+
+export const restoreComplaint = async (req: Request, res: Response) => {
+    
+    const { complaintId } = req.body as { tenantId: string, complaintId: string };
+    
+    if (!complaintId) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("UPDATE complaints SET deleted_at = NULL WHERE id = $1", [complaintId]);
+        res.status(200).json({ message: "Complaint restored successfully" });
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+
+}

@@ -38,3 +38,24 @@ export const generateApiKey = async (req: Request, res: Response) => {
     }
 
 }
+
+export const deleteApiKey = async (req: Request, res: Response) => {
+    
+    const { apiKeyId } = req.body as { apiKeyId: string };
+    
+    if (!apiKeyId) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("DELETE FROM api_keys WHERE id = $1", [apiKeyId]);
+        res.status(200).json({ message: "API key deleted successfully" });
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+}

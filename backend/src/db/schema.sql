@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS complaints (
   customer_name TEXT,
   customer_email TEXT,
   external_reference_id TEXT,
+
+  deleted_at TIMESTAMP,
   
   status TEXT NOT NULL CHECK (
     status IN ('open', 'in_progress', 'resolved')
@@ -73,6 +75,8 @@ CREATE TABLE IF NOT EXISTS employees (
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
+
+  deleted_at TIMESTAMP,
   
   title TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT now(),
@@ -107,3 +111,6 @@ CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status);
 CREATE INDEX IF NOT EXISTS idx_complaints_assigned_to ON complaints(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_invites_token ON invites(token);
 CREATE INDEX IF NOT EXISTS idx_invites_email ON invites(email);
+
+CREATE INDEX idx_employees_deleted_at ON employees(deleted_at);
+CREATE INDEX idx_complaints_deleted_at ON complaints(deleted_at);
