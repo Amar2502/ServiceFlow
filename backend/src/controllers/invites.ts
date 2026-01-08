@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import pool from "../config/db";
 import { config } from "../config/config";
-import { hashPassword } from "../utils/hash";
+import { hashPasswordDev } from "../utils/hash";
 import jwt from "jsonwebtoken";
 
 export const createInvite = async (req: Request, res: Response) => {
@@ -83,7 +83,7 @@ export const loginWithInvite = async (req: Request, res: Response) => {
       return;
     }
 
-    const passwordHash = await hashPassword(password);
+    const passwordHash = hashPasswordDev(password);
 
     await client.query("BEGIN");
     await client.query("UPDATE invites SET used = TRUE WHERE id = $1", [

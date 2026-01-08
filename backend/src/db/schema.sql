@@ -42,8 +42,6 @@ CREATE TABLE IF NOT EXISTS complaints (
     status IN ('open', 'in_progress', 'resolved')
   ) DEFAULT 'open',
   
-  assigned_to UUID REFERENCES users(id),
-  
   created_at TIMESTAMP NOT NULL DEFAULT now(),
   updated_at TIMESTAMP NOT NULL DEFAULT now()
 );

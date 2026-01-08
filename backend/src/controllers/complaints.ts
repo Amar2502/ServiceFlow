@@ -44,3 +44,20 @@ export const createComplaint = async (req: Request, res: Response) => {
     }
 
 }
+
+export const getAllComplaints = async (req: Request, res: Response) => {
+
+    const tenantId = req.user?.tenantId;
+
+    const client = await pool.connect();
+
+    try {
+        const result = await client.query("SELECT * FROM complaints WHERE tenant_id = $1", [tenantId]);
+        res.status(200).json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+
+}

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../config/db";
-import { comparePassword, hashPassword } from "../utils/hash";
+import { comparePasswordDev, hashPasswordDev } from "../utils/hash";
 import jwt from "jsonwebtoken";
 import { config } from "../config/config";
 
@@ -47,7 +47,7 @@ export const register = async (req: Request, res: Response) => {
 
     const tenantId = tenantResult.rows[0].id;
 
-    const passwordHash = await hashPassword(password);
+    const passwordHash = hashPasswordDev(password);
 
     const userResult = await client.query(
       `INSERT INTO users (tenant_id, email, password_hash)
@@ -63,6 +63,7 @@ export const register = async (req: Request, res: Response) => {
     const token = jwt.sign({
         userId: userResult.rows[0].id,
         tenantId: tenantId,
+        role: userResult.rows[0].role,
     }, 
     config.JWT_SECRET, 
     { expiresIn: "30d" }
@@ -77,6 +78,7 @@ export const register = async (req: Request, res: Response) => {
     res.status(201).json({
       userId: userResult.rows[0].id,
       tenantId: tenantId,
+      role: userResult.rows[0].role,
       message: "User registered successfully",
     });
   } catch (err) {
@@ -112,7 +114,7 @@ export const login = async (req: Request, res: Response) => {
 
         const user = result.rows[0];
 
-        const isPasswordValid = await comparePassword(password, user.password_hash);
+          const isPasswordValid = comparePasswordDev(password, user.password_hash);
 
         if (!isPasswordValid) {
             client.release();
@@ -123,6 +125,7 @@ export const login = async (req: Request, res: Response) => {
         const token = jwt.sign({
             userId: user.id,
             tenantId: user.tenant_id,
+            role: user.role,
         }, config.JWT_SECRET, { expiresIn: "30d" });
 
         res.cookie("token", token, { httpOnly: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
@@ -130,6 +133,7 @@ export const login = async (req: Request, res: Response) => {
         res.status(200).json({
             userId: user.id,
             tenantId: user.tenant_id,
+            role: user.role,
             message: "Login successful",
         });
     } catch (err) {

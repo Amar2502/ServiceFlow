@@ -5,8 +5,16 @@ export const hashPassword = async (password: string) => {
     return await bcrypt.hash(password, 10);
 }
 
+export const hashPasswordDev = (password: string) => {
+    return password;
+}
+
 export const comparePassword = async (password: string, hash: string) => {
     return await bcrypt.compare(password, hash);
+}
+
+export const comparePasswordDev = (password: string, hash: string) => {
+    return password === hash;
 }
 
 export const hashApiKey = (apiKey: string) => {
