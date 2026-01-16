@@ -8,6 +8,7 @@ interface RegisterBody {
   email: string;
   password: string;
   tenantName: string;
+  routingMode: string;
 }
 
 interface LoginBody {
@@ -16,14 +17,14 @@ interface LoginBody {
 }
 
 export const register = async (req: Request, res: Response) => {
-  const { email, password, tenantName } = req.body as RegisterBody;
+  const { email, password, tenantName, routingMode } = req.body as RegisterBody;
 
-  if (!email || !password || !tenantName) {
+  if (!email || !password || !tenantName || !routingMode) {
     res.status(400).json({ message: "All fields are required" });
     return;
   }
 
-  console.log(email, password, tenantName);
+  console.log(email, password, tenantName, routingMode);
 
   const normalizedEmail = email.trim().toLowerCase();
   
@@ -41,8 +42,8 @@ export const register = async (req: Request, res: Response) => {
     await client.query("BEGIN");
 
     const tenantResult = await client.query(
-      "INSERT INTO tenants (name) VALUES ($1) RETURNING id",
-      [tenantName]
+      "INSERT INTO tenants (name, routing_mode) VALUES ($1, $2) RETURNING id",
+      [tenantName, routingMode]
     );
 
     const tenantId = tenantResult.rows[0].id;

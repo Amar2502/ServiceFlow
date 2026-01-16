@@ -10,9 +10,11 @@ interface JwtPayload {
 
 export const adminmiddleware = (req: Request, res: Response, next: NextFunction) => {
 
-    const token =
-    req.cookies?.token ||
-    req.headers.authorization?.split(" ")[1];
+  console.log("Admin Middleware");
+
+    const token = req.cookies?.token;
+
+    console.log(token);
 
   if (!token) {
     res.status(401).json({ message: "Unauthorized" });
@@ -21,6 +23,8 @@ export const adminmiddleware = (req: Request, res: Response, next: NextFunction)
 
   try {
     const decoded = jwt.verify(token, config.JWT_SECRET) as JwtPayload;
+
+    console.log(decoded);
 
     if (decoded.role !== "ADMIN") {
         res.status(401).json({ message: "Unauthorized" });

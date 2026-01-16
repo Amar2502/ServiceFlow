@@ -3,9 +3,9 @@ import pool from "../config/db";
 
 export const updateTenant = async (req: Request, res: Response) => {
 
-    const { tenantId, name } = req.body as { tenantId: string, name: string };
+    const { tenantId, name, routingMode } = req.body as { tenantId: string, name: string, routingMode: string };
 
-    if (!tenantId || !name) {
+    if (!tenantId || !name || !routingMode) {
         res.status(400).json({ message: "All fields are required" });
         return;
     }
@@ -14,11 +14,12 @@ export const updateTenant = async (req: Request, res: Response) => {
 
     try {
 
-        const result = await client.query("UPDATE tenants SET name = $1 WHERE id = $2 RETURNING id, name", [name, tenantId]);
+        const result = await client.query("UPDATE tenants SET name = $1, routing_mode = $2 WHERE id = $3 RETURNING id, name, routing_mode", [name, routingMode, tenantId]);
 
         res.status(200).json({
             id: result.rows[0].id,
             name: result.rows[0].name,
+            routingMode: result.rows[0].routing_mode,
             message: "Tenant updated successfully"
         });
         
