@@ -5,10 +5,10 @@ import jwt from "jsonwebtoken";
 import { config } from "../config/config";
 
 interface RegisterBody {
+  name: string;
   email: string;
   password: string;
   tenantName: string;
-  routingMode: string;
 }
 
 interface LoginBody {
@@ -17,14 +17,14 @@ interface LoginBody {
 }
 
 export const register = async (req: Request, res: Response) => {
-  const { email, password, tenantName, routingMode } = req.body as RegisterBody;
+  const { name, email, password, tenantName } = req.body as RegisterBody;
 
-  if (!email || !password || !tenantName || !routingMode) {
+  if (!name || !email || !password || !tenantName) {
     res.status(400).json({ message: "All fields are required" });
     return;
   }
 
-  console.log(email, password, tenantName, routingMode);
+  console.log(name, email, password, tenantName);
 
   const normalizedEmail = email.trim().toLowerCase();
   
@@ -42,8 +42,8 @@ export const register = async (req: Request, res: Response) => {
     await client.query("BEGIN");
 
     const tenantResult = await client.query(
-      "INSERT INTO tenants (name, routing_mode) VALUES ($1, $2) RETURNING id",
-      [tenantName, routingMode]
+      "INSERT INTO tenants (name) VALUES ($1) RETURNING id",
+      [tenantName]
     );
 
     const tenantId = tenantResult.rows[0].id;
@@ -51,10 +51,10 @@ export const register = async (req: Request, res: Response) => {
     const passwordHash = hashPasswordDev(password);
 
     const userResult = await client.query(
-      `INSERT INTO users (tenant_id, email, password_hash)
-     VALUES ($1, $2, $3)
+      `INSERT INTO users (tenant_id, name, email, password_hash)
+     VALUES ($1, $2, $3, $4)
      RETURNING id`,
-      [tenantId, normalizedEmail, passwordHash]
+      [tenantId, name, normalizedEmail, passwordHash]
     );
 
     await client.query("COMMIT");

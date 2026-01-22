@@ -16,19 +16,17 @@ export const apiKeyAuth = async (
   const apiKey = authHeader.split(" ")[1];
   const keyHash = hashApiKey(apiKey);
 
-  console.log(keyHash);
+  console.log("keyHash from middleware", keyHash);
 
-  console.log(apiKey);
+  console.log("apiKey from middleware", apiKey);
 
   const client = await pool.connect();
 
   try {
     const result = await client.query(
-      "SELECT tenant_id FROM api_keys WHERE key_hash = $1",
+      "SELECT tenant_id, routing_mode FROM api_keys WHERE key_hash = $1",
       [keyHash]
     );
-
-    console.log(result.rows);
 
     if (result.rows.length === 0) {
       return res.status(401).json({ message: "Invalid API key" });
@@ -37,6 +35,7 @@ export const apiKeyAuth = async (
     // attach tenant context
     req.user = {
       tenantId: result.rows[0].tenant_id,
+      routingMode: result.rows[0].routing_mode as "DEPARTMENT" | "EMPLOYEE",
     };
 
     console.log("done from middleware");

@@ -5,10 +5,6 @@ CREATE TABLE IF NOT EXISTS tenants (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
 
-  routing_mode TEXT NOT NULL
-    CHECK (routing_mode IN ('DEPARTMENT', 'EMPLOYEE'))
-    DEFAULT 'DEPARTMENT',
-
   created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -17,11 +13,13 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
 
+  name TEXT,
+
   email TEXT NOT NULL,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('ADMIN','AGENT')) DEFAULT 'ADMIN',
 
-  created_at TIMESTAMP NOT NULL DEFAULT now(),
+  created_at TIMESTAMP NOT NULL DEFAULT now(),  
 
   UNIQUE (tenant_id, email)
 );
@@ -33,11 +31,17 @@ CREATE TABLE IF NOT EXISTS api_keys (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
 
-  key_hash TEXT NOT NULL UNIQUE,
+  key_hash TEXT NOT NULL,
   name TEXT,
   last_used_at TIMESTAMP,
 
-  created_at TIMESTAMP NOT NULL DEFAULT now()
+  routing_mode TEXT NOT NULL
+    CHECK (routing_mode IN ('DEPARTMENT', 'EMPLOYEE'))
+    DEFAULT 'DEPARTMENT',
+
+  created_at TIMESTAMP NOT NULL DEFAULT now(),
+
+  UNIQUE (tenant_id, key_hash)
 );
 
 CREATE INDEX idx_api_keys_tenant_id ON api_keys(tenant_id);
@@ -48,7 +52,7 @@ CREATE TABLE IF NOT EXISTS departments (
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
 
   name TEXT NOT NULL,
-  keywords TEXT,
+  keywords TEXT[],
 
   vector JSONB,
 
@@ -68,8 +72,10 @@ CREATE TABLE IF NOT EXISTS employees (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
 
+  name TEXT,
+
   title TEXT,
-  keywords TEXT,
+  keywords TEXT[],
 
   vector JSONB,
 
@@ -119,21 +125,35 @@ CREATE TABLE IF NOT EXISTS assignments (
   complaint_id UUID NOT NULL REFERENCES complaints(id) ON DELETE CASCADE,
 
   assignee_type TEXT NOT NULL CHECK (assignee_type IN ('EMPLOYEE', 'DEPARTMENT')),
-  assignee_id UUID NOT NULL,
+  
+  employee_id UUID REFERENCES employees(id),
+  department_id UUID REFERENCES departments(id),
+
+  CHECK (
+    (assignee_type = 'EMPLOYEE' AND employee_id IS NOT NULL AND department_id IS NULL)
+    OR
+    (assignee_type = 'DEPARTMENT' AND department_id IS NOT NULL AND employee_id IS NULL)
+  ),
 
   assigned_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_assignments_tenant_id ON assignments(tenant_id);
 CREATE INDEX idx_assignments_complaint_id ON assignments(complaint_id);
-CREATE INDEX idx_assignments_assignee ON assignments(assignee_type, assignee_id);
+CREATE INDEX idx_assignments_employee
+ON assignments(employee_id)
+WHERE employee_id IS NOT NULL;
+
+CREATE INDEX idx_assignments_department
+ON assignments(department_id)
+WHERE department_id IS NOT NULL;
+
 
 
 CREATE TABLE IF NOT EXISTS invites (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-
-  email TEXT NOT NULL,
+  
   role TEXT NOT NULL CHECK (role IN ('AGENT','ADMIN')) DEFAULT 'AGENT',
 
   token UUID NOT NULL DEFAULT uuid_generate_v4(),
@@ -146,3 +166,16 @@ CREATE TABLE IF NOT EXISTS invites (
 CREATE INDEX idx_invites_tenant_id ON invites(tenant_id);
 CREATE INDEX idx_invites_email ON invites(email);
 CREATE INDEX idx_invites_token ON invites(token);
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_complaints_updated
+BEFORE UPDATE ON complaints
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();

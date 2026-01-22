@@ -214,3 +214,61 @@ export const createEmployeeVectors = async (req: Request, res: Response) => {
         client.release();
     }
 }
+
+export const updateEmployeeName = async (req: Request, res: Response) => {
+
+    const { employeeId, name } = req.body as { tenantId: string, employeeId: string, name: string };
+
+    if (!employeeId || !name) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+
+    const client = await pool.connect();
+
+    try {
+        const result = await client.query("UPDATE employees SET name = $1 WHERE id = $2 RETURNING id, name, user_id", [name, employeeId]);
+
+        await client.query("UPDATE users SET name = $1 WHERE id = $2", [name, result.rows[0].user_id]);
+
+        res.status(200).json({
+            id: result.rows[0].id,
+            name: result.rows[0].name,
+            message: "Employee name updated successfully"
+        });
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+}
+
+export const updateEmployeeKeywords = async (req: Request, res: Response) => {
+    
+    const { employeeId, keywords } = req.body as { tenantId: string, employeeId: string, keywords: string };
+    
+    if (!employeeId || !keywords) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+
+    const keywordArray = keywords.split(',').map(k => k.trim()).filter(k => k.length > 0);
+    
+    const tenantId = req.user?.tenantId;
+
+    if (!tenantId) {
+        res.status(400).json({ message: "Unauthorized" });
+        return;
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("UPDATE employees SET keywords = $1 WHERE id = $2 AND tenant_id = $3", [keywordArray, employeeId, tenantId]);
+        res.status(200).json({ message: "Employee keywords updated successfully" });
+    } catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+}

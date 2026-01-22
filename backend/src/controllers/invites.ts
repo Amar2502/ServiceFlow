@@ -5,10 +5,10 @@ import { hashPasswordDev } from "../utils/hash";
 import jwt from "jsonwebtoken";
 
 export const createInvite = async (req: Request, res: Response) => {
-  const { email, role } = req.body as { email: string; role: string };
+  const { role } = req.body as { role: string };
   const tenantId = req.user?.tenantId;
 
-  if (!email || !role || !tenantId) {
+  if (!role || !tenantId) {
     res.status(400).json({ message: "Invalid credentials" });
     return;
   }
@@ -21,8 +21,8 @@ export const createInvite = async (req: Request, res: Response) => {
 
   try {
     const result = await client.query(
-      "INSERT INTO invites (email, role, tenant_id, expires_at) VALUES ($1, $2, $3, $4) RETURNING id, token, expires_at",
-      [email, normalizedRole, tenantId, expiresAt]
+      "INSERT INTO invites (tenant_id, role, expires_at) VALUES ($1, $2, $3) RETURNING id, token, expires_at",
+      [tenantId, normalizedRole, expiresAt]
     );
 
     res.status(201).json({
@@ -40,13 +40,15 @@ export const createInvite = async (req: Request, res: Response) => {
 };
 
 export const loginWithInvite = async (req: Request, res: Response) => {
-  const { token, password, email } = req.body as {
-    token: string;
-    password: string;
+  const { name, email, password, token, title } = req.body as {
+    name: string;
     email: string;
+    password: string;
+    token: string;
+    title: string;
   };
 
-  if (!token || !password || !email) {
+  if (!name || !email || !password || !token || !title) {
     res.status(400).json({ message: "Invalid credentials" });
     return;
   }
@@ -68,18 +70,8 @@ export const loginWithInvite = async (req: Request, res: Response) => {
 
     const invite = result.rows[0];
 
-    if (invite.email !== normalizedEmail) {
-      res.status(400).json({ message: "Invalid email" });
-      return;
-    }
-
     if (invite.expires_at < new Date()) {
       res.status(400).json({ message: "Invite expired" });
-      return;
-    }
-
-    if (invite.used) {
-      res.status(400).json({ message: "Invite already used" });
       return;
     }
 
@@ -90,13 +82,13 @@ export const loginWithInvite = async (req: Request, res: Response) => {
       invite.id,
     ]);
     const userResult = await client.query(
-      "INSERT INTO users (tenant_id, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id",
-      [invite.tenant_id, normalizedEmail, passwordHash, invite.role]
+      "INSERT INTO users (tenant_id, email, password_hash, role, name) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [invite.tenant_id, normalizedEmail, passwordHash, invite.role, name]
     );
 
     const employeeResult = await client.query(
-      "INSERT INTO employees (tenant_id, user_id) VALUES ($1, $2) RETURNING id",
-      [invite.tenant_id, userResult.rows[0].id]
+      "INSERT INTO employees (tenant_id, user_id, title) VALUES ($1, $2, $3) RETURNING id",
+      [invite.tenant_id, userResult.rows[0].id, title]
     );
 
     await client.query("COMMIT");

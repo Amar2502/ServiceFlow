@@ -3,13 +3,18 @@ import pool from "../config/db";
 import { config } from "../config/config";
 import { generatehexKey, hashApiKey } from "../utils/hash";
 
+interface GenerateApiKeyBody {
+    name: string;
+    routingMode: string;
+}
+
 export const generateApiKey = async (req: Request, res: Response) => {
 
-    const { name } = req.body as { name: string };
+    const { name, routingMode } = req.body as GenerateApiKeyBody;
 
     const tenantId = req.user?.tenantId;
 
-    if (!name || !tenantId) {
+    if (!name || !tenantId || !routingMode) {
         res.status(400).json({ message: "Inavlid Credentials" });
         return;
     }
@@ -22,7 +27,7 @@ export const generateApiKey = async (req: Request, res: Response) => {
 
     try {
 
-        const result = await client.query("INSERT INTO api_keys (key_hash, name, tenant_id) VALUES ($1, $2, $3) RETURNING id", [keyHash, name, tenantId]);
+        const result = await client.query("INSERT INTO api_keys (key_hash, name, tenant_id, routing_mode) VALUES ($1, $2, $3, $4) RETURNING id", [keyHash, name, tenantId, routingMode]);
 
 
         res.status(201).json({

@@ -7,6 +7,7 @@ declare global {
         userId?: string;
         tenantId: string;
         role?: string;
+        routingMode?: "DEPARTMENT" | "EMPLOYEE";
       };
     }
   }

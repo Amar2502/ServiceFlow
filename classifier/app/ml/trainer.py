@@ -23,7 +23,7 @@ def train_departments(departments, save_model: bool = True):
         data.append({
             "id": d.id,
             "name": d.name,
-            "text": d.keyword.lower().replace(",", " ")
+            "text": ", ".join(d.keyword)
         })
 
     df = pd.DataFrame(data)

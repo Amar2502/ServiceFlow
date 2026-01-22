@@ -5,7 +5,7 @@ from typing import List, Dict
 class DepartmentInput(BaseModel):
     id: int
     name: str
-    keyword: str
+    keyword: List[str]
 
 
 class VectorizeRequest(BaseModel):
