@@ -71,4 +71,8 @@ model/
 
 commands.txt
 
-postman.md 
+postman.md
+
+.next/
+out/
+frontend/.next/
