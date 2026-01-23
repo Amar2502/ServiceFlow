@@ -72,7 +72,7 @@ export default function Register() {
           <CardHeader className="space-y-1">
             <div className="flex justify-center mb-4">
               <Link href="/">
-                <h2 className="text-3xl font-bold text-[#5a3e2b]">ResolveTrack</h2>
+                <h2 className="text-3xl font-bold text-[#5a3e2b]">ServiceFlow</h2>
               </Link>
             </div>
             <CardTitle className="text-2xl text-center text-[#5a3e2b]">
@@ -101,7 +101,7 @@ export default function Register() {
               </div>
               <div className="space-y-2 mt-4">
                 <Label htmlFor="companyName">Company Name</Label>
-                <Input id="companyName" value={formData.companyName} onChange={handleChange} required />
+                <Input id="companyName" value={formData.tenantName} onChange={handleChange} required />
               </div>
               <div className="space-y-2 mt-4">
                 <Label htmlFor="password">Create Password</Label>
