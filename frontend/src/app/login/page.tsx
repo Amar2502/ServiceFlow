@@ -60,7 +60,7 @@ export default function Login() {
       );
 
       if (response.data) {
-        router.push("/");
+        router.push("/dashboard");
       }
     } catch (err: any) {
       setError(

@@ -49,7 +49,7 @@ export default function Register() {
       )
 
       if (response.data) {
-        router.push("/")
+        router.push("/dashboard")
       }
     } catch (err: any) {
       setError(

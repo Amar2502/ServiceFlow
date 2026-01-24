@@ -164,7 +164,6 @@ CREATE TABLE IF NOT EXISTS invites (
 );
 
 CREATE INDEX idx_invites_tenant_id ON invites(tenant_id);
-CREATE INDEX idx_invites_email ON invites(email);
 CREATE INDEX idx_invites_token ON invites(token);
 
 CREATE OR REPLACE FUNCTION set_updated_at()

@@ -79,6 +79,7 @@ export default function DepartmentsPage() {
   };
 
   const handleCreate = async (e: React.FormEvent) => {
+    console.log("formData", formData);
     e.preventDefault();
     setLoading(true);
     try {

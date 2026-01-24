@@ -60,11 +60,15 @@ export default function ApiKeysPage() {
 
   const fetchApiKeys = async () => {
     try {
-      // Note: Backend doesn't have a GET endpoint, so this would need to be added
-      // For now, we'll just show the form
-      setApiKeys([]);
-    } catch (error) {
-      toast.error("Failed to fetch API keys");
+      const response = await axios.get(
+        "http://localhost:5000/api/apikey/get",
+        { withCredentials: true }
+      );
+      setApiKeys(response.data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to fetch API keys");
+    } finally {
+      setLoading(false);
     }
   };
 

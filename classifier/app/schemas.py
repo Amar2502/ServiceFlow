@@ -1,9 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Dict
 
 
 class DepartmentInput(BaseModel):
-    id: int
+    id: str = Field(..., description="Department UUID identifier")
     name: str
     keyword: List[str]
 
