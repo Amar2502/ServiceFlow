@@ -153,6 +153,7 @@ export const getAllDepartments = async (req: Request, res: Response) => {
 
 }
 
+
 export const getAllDeletedDepartments = async (req: Request, res: Response) => {
 
     const tenantId = req.user?.tenantId;
@@ -174,6 +175,7 @@ export const getAllDeletedDepartments = async (req: Request, res: Response) => {
     }
 
 }
+
 
 export const deleteDepartment = async (req: Request, res: Response) => {
     
@@ -203,6 +205,7 @@ export const deleteDepartment = async (req: Request, res: Response) => {
     }
 
 }
+
 
 export const restoreDepartment = async (req: Request, res: Response) => {
     

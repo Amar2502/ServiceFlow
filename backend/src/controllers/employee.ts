@@ -264,11 +264,114 @@ export const updateEmployeeKeywords = async (req: Request, res: Response) => {
     const client = await pool.connect();
 
     try {
-        await client.query("UPDATE employees SET keywords = $1 WHERE id = $2 AND tenant_id = $3", [keywordArray, employeeId, tenantId]);
-        res.status(200).json({ message: "Employee keywords updated successfully" });
+        
+        const employeeResult = await client.query("SELECT * FROM employees WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL", [employeeId, tenantId]);
+
+        if (employeeResult.rows.length === 0) {
+            res.status(400).json({ message: "Employee not found" });
+            return;
+        }
+
+        const employees = employeeResult.rows.map((emp, index) => ({
+            id: index + 1, // Classifier expects numeric IDs
+            name: emp.email || `employee_${emp.id}`, // Use email as identifier
+            keyword: `${emp.title || ""} ${keywords || ""}`.trim() || emp.email
+        }));
+
+        const response = await fetch(`${config.ML_SERVICE_URL}/departments/vectorize`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ departments: employees })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+            res.status(response.status).json({ message: errorData.detail || "Failed to vectorize employees" });
+            return;
+        }
+        
+        const vectorData = await response.json();
+
+        // Update each employee with its vector
+        const vectors = vectorData.vectors || {};
+        let updatedCount = 0;
+
+        for (const emp of employeeResult.rows) {
+            const employeeName = emp.email || `employee_${emp.id}`;
+            const vector = vectors[employeeName];
+            if (vector) {
+                await client.query(
+                    "UPDATE employees SET vector = $1 WHERE id = $2 AND tenant_id = $3",
+                    [JSON.stringify(vector), emp.id, tenantId]
+                );
+                updatedCount++;
+            }
+        }
+
+        res.status(200).json({
+            message: "Employee keywords updated successfully",
+            employees_updated: updatedCount,
+            model_version: vectorData.model_version,
+            vector_dimension: vectorData.vector_dimension
+        });
+        
+
     } catch (err) {
         res.status(500).json({ message: "Internal server error" });
     } finally {
         client.release();
     }
+}
+
+export const getMyAssignments = async (req: Request, res: Response) => {
+
+    const { employeeId } = req.params as { employeeId: string };
+
+    if (!employeeId) {
+        res.status(400).json({ message: "All fields are required" });
+        return;
+    }
+
+    const tenantId = req.user?.tenantId;
+
+    if (!tenantId) {
+        res.status(400).json({ message: "Unauthorized" });
+        return;
+    }
+
+    const client = await pool.connect();
+
+    try {
+
+        const result = await client.query(`SELECT
+            a.id,
+            a.complaint_id,
+            a.assignee_type,
+            a.assigned_at,
+            c.title,
+            c.description,
+            c.customer_name,
+            c.customer_email,
+            c.status,
+            c.external_reference_id,
+            c.created_at,
+            c.updated_at
+            FROM assignments a
+            LEFT JOIN complaints c
+            ON a.complaint_id = c.id
+            WHERE a.employee_id = $1 AND c.deleted_at IS NULL
+            ORDER BY a.assigned_at DESC
+            `, [employeeId]);
+
+        res.status(200).json(result.rows);
+
+    }
+    catch (err) {
+        res.status(500).json({ message: "Internal server error" });
+    } finally {
+        client.release();
+    }
+
 }
