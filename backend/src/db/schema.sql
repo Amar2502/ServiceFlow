@@ -5,6 +5,10 @@ CREATE TABLE IF NOT EXISTS tenants (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
 
+  routing_mode TEXT NOT NULL
+    CHECK (routing_mode IN ('DEPARTMENT', 'EMPLOYEE'))
+    DEFAULT 'DEPARTMENT',
+
   created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -34,10 +38,6 @@ CREATE TABLE IF NOT EXISTS api_keys (
   key_hash TEXT NOT NULL,
   name TEXT,
   last_used_at TIMESTAMP,
-
-  routing_mode TEXT NOT NULL
-    CHECK (routing_mode IN ('DEPARTMENT', 'EMPLOYEE'))
-    DEFAULT 'DEPARTMENT',
 
   created_at TIMESTAMP NOT NULL DEFAULT now(),
 
@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS employees (
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
+
+  load INTEGER NOT NULL DEFAULT 0,
 
   name TEXT,
 
@@ -130,7 +132,7 @@ CREATE TABLE IF NOT EXISTS assignments (
   department_id UUID REFERENCES departments(id),
 
   CHECK (
-    (assignee_type = 'EMPLOYEE' AND employee_id IS NOT NULL AND department_id IS NULL)
+    (assignee_type = 'EMPLOYEE' AND employee_id IS NOT NULL)
     OR
     (assignee_type = 'DEPARTMENT' AND department_id IS NOT NULL AND employee_id IS NULL)
   ),

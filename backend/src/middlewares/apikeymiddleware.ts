@@ -23,19 +23,37 @@ export const apiKeyAuth = async (
   const client = await pool.connect();
 
   try {
-    const result = await client.query(
-      "SELECT tenant_id, routing_mode FROM api_keys WHERE key_hash = $1",
+    // First, get the tenant_id for the api_key
+    const apiKeyResult = await client.query(
+      "SELECT tenant_id FROM api_keys WHERE key_hash = $1",
       [keyHash]
     );
 
-    if (result.rows.length === 0) {
+    if (apiKeyResult.rows.length === 0) {
       return res.status(401).json({ message: "Invalid API key" });
     }
 
+    const tenantId = apiKeyResult.rows[0].tenant_id;
+
+    // Now, get the routing_mode for the tenant
+    const tenantResult = await client.query(
+      "SELECT routing_mode FROM tenants WHERE id = $1",
+      [tenantId]
+    );
+
+    if (tenantResult.rows.length === 0) {
+      return res.status(401).json({ message: "Tenant not found" });
+    }
+    // Build a unified result object for the following code
+    const result = {
+        tenant_id: tenantId,
+        routing_mode: tenantResult.rows[0].routing_mode
+    };
+
     // attach tenant context
     req.user = {
-      tenantId: result.rows[0].tenant_id,
-      routingMode: result.rows[0].routing_mode as "DEPARTMENT" | "EMPLOYEE",
+      tenantId: result.tenant_id,
+      routingMode: result.routing_mode as "DEPARTMENT" | "EMPLOYEE",
     };
 
     console.log("done from middleware");

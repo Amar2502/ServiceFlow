@@ -28,7 +28,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { EmployeesTable } from "./employees-table";
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Copy, Check } from "lucide-react";
 
@@ -63,18 +63,14 @@ export default function EmployeesPage() {
     setLoading(true);
     try {
       const [activeRes, deletedRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/employees/active", {
-          withCredentials: true,
-        }),
-        axios.get("http://localhost:5000/api/employees/deleted", {
-          withCredentials: true,
-        }),
+        api.get<Employee[]>("/api/employees/active"),
+        api.get<Employee[]>("/api/employees/deleted"),
       ]);
-      setEmployees(activeRes.data);
-      setDeletedEmployees(deletedRes.data);
-    } catch (error: any) {
+      setEmployees(activeRes);
+      setDeletedEmployees(deletedRes);
+    } catch (err) {
       toast.error("Failed to fetch employees");
-      console.error(error);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -88,18 +84,17 @@ export default function EmployeesPage() {
     e.preventDefault();
     setInviteLoading(true);
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/invite/create",
-        { role: inviteRole },
-        { withCredentials: true }
+      const response = await api.post<{ token: string; invite_url: string }>(
+        "/api/invite/create",
+        { role: inviteRole }
       );
       setGeneratedInvite({
-        token: response.data.token,
-        invite_url: response.data.invite_url,
+        token: response.token,
+        invite_url: response.invite_url,
       });
       toast.success("Invite link generated successfully");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create invite");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create invite");
     } finally {
       setInviteLoading(false);
     }

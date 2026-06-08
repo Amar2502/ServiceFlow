@@ -26,10 +26,12 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Eye, EyeOff, ArrowRight, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
+import { useAuth } from "@/components/auth-provider";
+import { api } from "@/lib/api";
 
 export default function Login() {
   const router = useRouter();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -53,18 +55,21 @@ export default function Login() {
     setError("");
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/login",
-        formData,
-        { withCredentials: true }
-      );
+      const data = await api.post<{
+        userId: string;
+        tenantId: string;
+        role: "ADMIN" | "AGENT";
+      }>("/api/auth/login", formData);
 
-      if (response.data) {
-        router.push("/dashboard");
-      }
-    } catch (err: any) {
+      login({
+        userId: data.userId,
+        tenantId: data.tenantId,
+        role: data.role,
+      });
+      router.push("/dashboard");
+    } catch (err: unknown) {
       setError(
-        err.response?.data?.message || "An error occurred. Please try again."
+        err instanceof Error ? err.message : "An error occurred. Please try again."
       );
     } finally {
       setLoading(false);

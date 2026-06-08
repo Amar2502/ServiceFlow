@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { toast } from "sonner";
+import { API_BASE } from "@/lib/api";
 
 export default function ApiDocsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -53,9 +54,9 @@ export default function ApiDocsPage() {
     </div>
   );
 
-  const curlExample = `curl -X POST https://api.serviceflow.com/api/complaints/create \\
+  const curlExample = `curl -X POST ${API_BASE}/api/complaints/create \\
   -H "Content-Type: application/json" \\
-  -H "X-API-Key: your-api-key-here" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
   -d '{
     "title": "Login not working",
     "description": "Customer cannot log in after password reset",
@@ -65,11 +66,11 @@ export default function ApiDocsPage() {
   }'`;
 
   const javascriptExample = `// Using fetch API
-const response = await fetch('https://api.serviceflow.com/api/complaints/create', {
+const response = await fetch('${API_BASE}/api/complaints/create', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-Key': 'your-api-key-here'
+    'Authorization': 'Bearer YOUR_API_KEY'
   },
   body: JSON.stringify({
     title: 'Login not working',
@@ -85,10 +86,10 @@ console.log(data);`;
 
   const pythonExample = `import requests
 
-url = "https://api.serviceflow.com/api/complaints/create"
+url = "${API_BASE}/api/complaints/create"
 headers = {
     "Content-Type": "application/json",
-    "X-API-Key": "your-api-key-here"
+    "Authorization": "Bearer YOUR_API_KEY"
 }
 data = {
     "title": "Login not working",
@@ -104,7 +105,7 @@ print(response.json())`;
   const nodeExample = `const axios = require('axios');
 
 const response = await axios.post(
-  'https://api.serviceflow.com/api/complaints/create',
+  '${API_BASE}/api/complaints/create',
   {
     title: 'Login not working',
     description: 'Customer cannot log in after password reset',
@@ -115,7 +116,7 @@ const response = await axios.post(
   {
     headers: {
       'Content-Type': 'application/json',
-      'X-API-Key': 'your-api-key-here'
+      'Authorization': 'Bearer YOUR_API_KEY'
     }
   }
 );
@@ -161,24 +162,24 @@ console.log(response.data);`;
           <div>
             <h3 className="font-semibold mb-2">1. Get Your API Key</h3>
             <p className="text-sm text-muted-foreground mb-2">
-              Navigate to{" "}
+              Open{" "}
               <Link href="/dashboard/apikeys" className="text-[#8c6d4e] hover:underline">
-                API Keys
+                API keys
               </Link>{" "}
-              in your dashboard and generate a new API key. Choose your routing mode:
+              to create a key, and{" "}
+              <Link href="/dashboard/settings" className="text-[#8c6d4e] hover:underline">
+                Settings
+              </Link>{" "}
+              to choose department vs employee routing for inbound tickets.
             </p>
-            <div className="flex gap-2 mt-2">
-              <Badge variant="outline">DEPARTMENT</Badge>
-              <Badge variant="outline">EMPLOYEE</Badge>
-            </div>
           </div>
           <div>
             <h3 className="font-semibold mb-2">2. Authenticate Requests</h3>
             <p className="text-sm text-muted-foreground mb-2">
-              Include your API key in the request header:
+              Send the secret key as a Bearer token (same string shown once when you create the key):
             </p>
             <CodeBlock
-              code='X-API-Key: your-api-key-here'
+              code="Authorization: Bearer YOUR_API_KEY"
               language="text"
               id="auth-header"
             />
@@ -202,10 +203,11 @@ console.log(response.data);`;
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <CodeBlock code="https://api.serviceflow.com/api" language="text" id="base-url" />
+          <CodeBlock code={`${API_BASE}/api`} language="text" id="base-url" />
           <p className="text-sm text-muted-foreground mt-2">
-            <strong>Note:</strong> Replace with your actual API base URL. For local development,
-            use <code className="bg-gray-100 px-1 rounded">http://localhost:5000/api</code>
+            Set <code className="bg-gray-100 px-1 rounded">NEXT_PUBLIC_API_URL</code> in{" "}
+            <code className="bg-gray-100 px-1 rounded">.env.local</code> to point the console at your
+            deployed API.
           </p>
         </CardContent>
       </Card>
@@ -227,8 +229,8 @@ console.log(response.data);`;
               <code className="text-sm font-mono">/complaints/create</code>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Create a new complaint. The system will automatically route it to the appropriate
-              department or employee based on your API key's routing mode.
+              Create a complaint. Routing uses your tenant&apos;s strategy (department vs employee
+              profiles) and the ML classifier — see Settings in the console.
             </p>
 
             <div className="mb-4">

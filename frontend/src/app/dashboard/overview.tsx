@@ -39,7 +39,7 @@ import {
         <CardHeader>
           <CardTitle>Overview</CardTitle>
           <CardDescription>
-            Monthly complaint volume and resolution trends
+            Illustrative trend — connect analytics to your own warehouse when you are ready.
           </CardDescription>
         </CardHeader>
         <CardContent className="pl-2">

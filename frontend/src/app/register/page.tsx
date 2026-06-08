@@ -10,11 +10,13 @@ import { motion } from "framer-motion"
 import Link from 'next/link'
 import { Eye, EyeOff } from "lucide-react"
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import { useAuth } from "@/components/auth-provider"
+import { api } from "@/lib/api"
 
 export default function Register() {
 
   const router = useRouter()
+  const { login } = useAuth()
 
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
@@ -42,18 +44,21 @@ export default function Register() {
     setError("")
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/register",
-        formData,
-        { withCredentials: true }
-      )
+      const data = await api.post<{
+        userId: string;
+        tenantId: string;
+        role: "ADMIN" | "AGENT";
+      }>("/api/auth/register", formData)
 
-      if (response.data) {
-        router.push("/dashboard")
-      }
-    } catch (err: any) {
+      login({
+        userId: data.userId,
+        tenantId: data.tenantId,
+        role: data.role ?? "ADMIN",
+      })
+      router.push("/dashboard")
+    } catch (err: unknown) {
       setError(
-        err.response?.data?.message || "An error occurred. Please try again."
+        err instanceof Error ? err.message : "An error occurred. Please try again."
       )
     } finally {
       setLoading(false)

@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Accordion,
   AccordionContent,
@@ -9,779 +10,307 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
-  ChevronRight,
-  ClipboardCheck,
-  BarChart2,
-  MessageCircle,
-  Users,
-  Briefcase,
+  ArrowRight,
+  Terminal,
   Zap,
-  ShieldCheck,
-  TrendingUp,
-  Star,
-  Award,
   Shield,
-  Database,
-  Code,
-  Lock,
-  Cloud,
+  Globe,
+  Code2,
+  Workflow,
+  Cpu,
+  ChevronRight,
+  BookOpen,
 } from "lucide-react";
-import Link from "next/link";
+import { API_BASE } from "@/lib/api";
+
+const apiSnippet = `curl -X POST ${API_BASE}/api/complaints/create \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -d '{"title":"Refund stuck","customerName":"Ada","customerEmail":"ada@example.com"}'`;
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Navigation */}
-      <header className="sticky top-0 z-50 w-full border-b bg-white">
-        <div className="container flex items-center justify-between h-16 px-4 mx-auto sm:px-6">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-md bg-[#EED9C4] flex items-center justify-center">
-              <ClipboardCheck size={20} className="text-neutral-800" />
-            </div>
-            <span className="text-xl font-bold">ServiceFlow</span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link href="/register">
-            <Button
-              variant="ghost"
-              size="default"
-              className="bg-[#EED9C4] text-neutral-900 hover:bg-[#E6C8B4] cursor-pointer"
-            >
-              Register
-            </Button>
+    <div className="min-h-screen flex flex-col bg-[#0c0f14] text-zinc-100">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0c0f14]/90 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40">
+              <Terminal className="h-5 w-5" aria-hidden />
+            </span>
+            <span className="text-lg">
+              Service<span className="text-emerald-400">Flow</span>
+            </span>
+          </Link>
+          <nav className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
+            <a href="#product" className="hover:text-white transition-colors">
+              Product
+            </a>
+            <a href="#how" className="hover:text-white transition-colors">
+              How it works
+            </a>
+            <a href="#faq" className="hover:text-white transition-colors">
+              FAQ
+            </a>
+            <Link href="/login" className="hover:text-white transition-colors">
+              API console
             </Link>
+          </nav>
+          <div className="flex items-center gap-2">
             <Link href="/login">
-            <Button
-              variant="ghost"
-              size="default"
-              className="bg-[#EED9C4] text-neutral-900 hover:bg-[#E6C8B4] cursor-pointer"
-            >
-              Log in
-            </Button>
+              <Button variant="ghost" className="text-zinc-300 hover:text-white hover:bg-white/10">
+                Log in
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button className="bg-emerald-500 hover:bg-emerald-400 text-[#0c0f14] font-semibold">
+                Start free
+              </Button>
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="relative py-20 overflow-hidden bg-linear-to-b from-white to-[#F9F2EB]">
-        <div className="container px-4 mx-auto sm:px-6">
-          <div className="flex flex-col lg:flex-row items-center">
-            <div className="flex-1 space-y-6 text-center lg:text-left">
-              <div className="inline-block px-4 py-1 rounded-full bg-[#EED9C4] text-sm font-medium text-neutral-900 mb-4">
-                AI-Powered • Multi-Tenant • API-First
-              </div>
-              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-                AI-Powered Complaint Management with Intelligent Routing
-              </h1>
-              <p className="max-w-2xl mx-auto lg:mx-0 text-lg text-neutral-600">
-                ServiceFlow is a multi-tenant, API-first platform with ML-powered routing that automatically assigns complaints to the right departments or employees using TF-IDF vectorization and cosine similarity matching.
+      <main className="flex-1">
+        <section className="relative overflow-hidden border-b border-white/10">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/30 via-transparent to-transparent" />
+          <div className="mx-auto grid max-w-6xl gap-12 px-4 py-20 lg:grid-cols-2 lg:items-center lg:py-28 sm:px-6">
+            <div className="space-y-8">
+              <p className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-emerald-300">
+                <Cpu className="h-3.5 w-3.5" />
+                Complaint routing API
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Button
-                  size="lg"
-                  className="bg-[#EED9C4] text-neutral-900 hover:bg-[#E6C8B4] cursor-pointer"
+              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-[3.25rem] leading-tight">
+                Ship smarter support routing{" "}
+                <span className="text-emerald-400">through one REST API</span>
+              </h1>
+              <p className="text-lg text-zinc-400 max-w-xl leading-relaxed">
+                Drop ServiceFlow in front of your mobile app, SaaS, or legacy form. We classify
+                text with TF‑IDF similarity, score confidence, and assign to the right department or
+                agent — tenant-isolated and API-first.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/register">
+                  <Button
+                    size="lg"
+                    className="bg-emerald-500 hover:bg-emerald-400 text-[#0c0f14] font-semibold gap-2"
+                  >
+                    Create workspace <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="border-white/20 bg-white/5 text-white hover:bg-white/10 gap-2"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    Sign in to API docs
+                  </Button>
+                </Link>
+              </div>
+              <ul className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-zinc-500">
+                <li className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-emerald-500/80" /> Tenant-scoped data
+                </li>
+                <li className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-emerald-500/80" /> Bearer API keys
+                </li>
+                <li className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-emerald-500/80" /> ML-assisted assignment
+                </li>
+              </ul>
+            </div>
+
+            <div className="relative">
+              <div className="rounded-2xl border border-white/10 bg-[#080a0d] p-1 shadow-2xl shadow-emerald-950/40 ring-1 ring-white/10">
+                <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3 text-xs text-zinc-500">
+                  <span className="h-2 w-2 rounded-full bg-red-500/80" />
+                  <span className="h-2 w-2 rounded-full bg-amber-500/80" />
+                  <span className="h-2 w-2 rounded-full bg-emerald-500/80" />
+                  <span className="ml-2 font-mono text-zinc-600">your-backend → ServiceFlow</span>
+                </div>
+                <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed">
+                  <code>
+                    <span className="text-emerald-400">$ </span>
+                    <span className="text-zinc-300">{apiSnippet}</span>
+                  </code>
+                </pre>
+                <div className="border-t border-white/10 px-4 py-3 text-xs text-zinc-500 font-mono">
+                  → <span className="text-emerald-400">201</span> profile_id · confidence · assignment
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="product" className="border-b border-white/10 bg-[#0a0d12] py-20">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="max-w-2xl mb-14">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                Built for teams who sell an API, not a inbox
+              </h2>
+              <p className="mt-4 text-zinc-400 text-lg">
+                Your customers stay in your UI; ServiceFlow is the routing brain behind{" "}
+                <code className="text-emerald-400/90">POST /api/complaints/create</code>.
+              </p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-3">
+              {[
+                {
+                  icon: Code2,
+                  title: "REST-first",
+                  body: "Cookie-auth dashboard for operators; Bearer keys for every integration. Same tenant, strict isolation.",
+                },
+                {
+                  icon: Workflow,
+                  title: "Two routing modes",
+                  body: "Department queues or direct agent vectors — controlled per tenant to match how your org works.",
+                },
+                {
+                  icon: Cpu,
+                  title: "Similarity routing",
+                  body: "Keywords become embeddings; complaints match the best profile with confidence you can monitor.",
+                },
+              ].map((item) => (
+                <Card
+                  key={item.title}
+                  className="border-white/10 bg-white/[0.03] text-zinc-100 shadow-none"
                 >
-                  Get API Access
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-                <Button size="lg" variant="outline">
-                  View Documentation
-                </Button>
-              </div>
-              <div className="flex items-center gap-6 justify-center lg:justify-start text-sm text-neutral-600">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  <span>SOC 2 Compliant</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  <span>Tenant Isolation</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Code className="h-4 w-4" />
-                  <span>REST APIs</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex-1 mt-10 lg:mt-0 lg:ml-10">
-              <div className="relative mx-auto w-full max-w-md rounded-xl shadow-xl overflow-hidden">
-                <div className="bg-neutral-900 p-4 rounded-xl">
-                  <div className="bg-neutral-800 rounded-lg p-4 font-mono text-sm">
-                    <div className="text-green-400">POST /api/complaints/assign-to-assignee-through-ml</div>
-                    <div className="text-neutral-400 mt-2">{"{"}</div>
-                    <div className="ml-4 text-blue-300">"complaintId": "uuid",</div>
-                    <div className="ml-4 text-blue-300">"complaintText": "Order delayed..."</div>
-                    <div className="text-neutral-400">{"}"}</div>
-                    <div className="mt-4 text-yellow-400">→ 200 OK</div>
-                    <div className="text-neutral-400 mt-2">{"{"}</div>
-                    <div className="ml-4 text-purple-300">"assignee_type": "DEPARTMENT",</div>
-                    <div className="ml-4 text-purple-300">"department_name": "Shipping",</div>
-                    <div className="ml-4 text-purple-300">"confidence": 0.92,</div>
-                    <div className="ml-4 text-emerald-300">"needs_review": false</div>
-                    <div className="text-neutral-400">{"}"}</div>
-                  </div>
-                </div>
-              </div>
+                  <CardHeader>
+                    <item.icon className="h-10 w-10 text-emerald-400/90 mb-2" />
+                    <CardTitle className="text-lg">{item.title}</CardTitle>
+                    <CardDescription className="text-zinc-400 leading-relaxed">
+                      {item.body}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Architecture Highlights */}
-      <section className="py-16 bg-white">
-        <div className="container px-4 mx-auto sm:px-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-[#EED9C4] flex items-center justify-center mx-auto mb-4">
-                <Cloud className="h-8 w-8 text-neutral-800" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">Multi-Tenant SaaS</h3>
-              <p className="text-sm text-neutral-600">Complete data isolation per organization with tenant-scoped APIs</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-[#EED9C4] flex items-center justify-center mx-auto mb-4">
-                <Code className="h-8 w-8 text-neutral-800" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">API-First Design</h3>
-              <p className="text-sm text-neutral-600">Integrate with web, mobile, and third-party systems via REST APIs</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-[#EED9C4] flex items-center justify-center mx-auto mb-4">
-                <Shield className="h-8 w-8 text-neutral-800" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">Enterprise Security</h3>
-              <p className="text-sm text-neutral-600">Role-based access control with secure API key authentication</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-[#EED9C4] flex items-center justify-center mx-auto mb-4">
-                <Zap className="h-8 w-8 text-neutral-800" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">ML-Powered Routing</h3>
-              <p className="text-sm text-neutral-600">AI automatically routes complaints using TF-IDF vectors and cosine similarity</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-20 bg-[#F9F2EB]">
-        <div className="container px-4 mx-auto sm:px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold sm:text-4xl">
-              Built for scale, security, and AI-powered automation
+        <section id="how" className="py-20 border-b border-white/10">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-12">
+              Go live in three steps
             </h2>
-            <p className="mt-4 text-lg text-neutral-600 max-w-3xl mx-auto">
-              From multi-channel intake to AI-powered routing, ServiceFlow uses machine learning to automatically assign complaints to the right teams with confidence scoring and review flags.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="w-12 h-12 rounded-lg bg-[#EED9C4] flex items-center justify-center mb-2">
-                  <Database className="h-6 w-6 text-neutral-800" />
+            <div className="grid gap-8 md:grid-cols-3">
+              {[
+                {
+                  step: "01",
+                  title: "Model your teams",
+                  desc: "Define departments and agents with keyword profiles in the console — those seed the classifier.",
+                },
+                {
+                  step: "02",
+                  title: "Issue API keys",
+                  desc: "Rotate Bearer keys per environment. Tune routing strategy under workspace settings.",
+                },
+                {
+                  step: "03",
+                  title: "POST complaints",
+                  desc: "Your apps send JSON; we return assignment metadata and confidence so you can audit flows.",
+                },
+              ].map((s) => (
+                <div key={s.step} className="relative rounded-2xl border border-white/10 bg-[#0a0d12] p-6">
+                  <span className="text-xs font-mono text-emerald-500/90">{s.step}</span>
+                  <h3 className="mt-3 text-xl font-semibold">{s.title}</h3>
+                  <p className="mt-2 text-zinc-400 leading-relaxed">{s.desc}</p>
                 </div>
-                <CardTitle>Multi-Tenant Architecture</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600">
-                  Complete data isolation between organizations with tenant-scoped roles, permissions, and API keys for enterprise-grade security.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="w-12 h-12 rounded-lg bg-[#EED9C4] flex items-center justify-center mb-2">
-                  <Code className="h-6 w-6 text-neutral-800" />
-                </div>
-                <CardTitle>REST API Integration</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600">
-                  Connect web apps, mobile platforms, and third-party systems through secure, well-documented REST APIs with webhook support.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="w-12 h-12 rounded-lg bg-[#EED9C4] flex items-center justify-center mb-2">
-                  <MessageCircle className="h-6 w-6 text-neutral-800" />
-                </div>
-                <CardTitle>Multi-Channel Capture</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600">
-                  Accept complaints from web portals, mobile apps, email, chat, and external systems through unified API endpoints.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="w-12 h-12 rounded-lg bg-[#EED9C4] flex items-center justify-center mb-2">
-                  <Users className="h-6 w-6 text-neutral-800" />
-                </div>
-                <CardTitle>Role-Based Access Control</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600">
-                  Granular permissions for admins, staff, and support teams with customizable roles and department-level access.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="w-12 h-12 rounded-lg bg-[#EED9C4] flex items-center justify-center mb-2">
-                  <Zap className="h-6 w-6 text-neutral-800" />
-                </div>
-                <CardTitle>ML-Powered Intelligent Routing</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600">
-                  Automatically route complaints to departments or employees using TF-IDF vectorization and cosine similarity. Confidence scores and review flags ensure accuracy.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="w-12 h-12 rounded-lg bg-[#EED9C4] flex items-center justify-center mb-2">
-                  <BarChart2 className="h-6 w-6 text-neutral-800" />
-                </div>
-                <CardTitle>Analytics & Insights</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600">
-                  Track resolution times, complaint patterns, and team performance with extensible analytics ready for ML integration.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="w-12 h-12 rounded-lg bg-[#EED9C4] flex items-center justify-center mb-2">
-                  <ClipboardCheck className="h-6 w-6 text-neutral-800" />
-                </div>
-                <CardTitle>Compliance & Audit Trails</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600">
-                  Complete audit logs for every action, status change, and interaction to meet regulatory requirements and compliance standards.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="w-12 h-12 rounded-lg bg-[#EED9C4] flex items-center justify-center mb-2">
-                  <Shield className="h-6 w-6 text-neutral-800" />
-                </div>
-                <CardTitle>Secure API Keys</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600">
-                  Organization-scoped API keys with granular permissions, rate limiting, and secure token management for all integrations.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="w-12 h-12 rounded-lg bg-[#EED9C4] flex items-center justify-center mb-2">
-                  <TrendingUp className="h-6 w-6 text-neutral-800" />
-                </div>
-                <CardTitle>Vector-Based ML System</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600">
-                  Department and employee vectors stored in-database enable real-time ML predictions. Model versioning and confidence thresholds ensure reliable routing.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section id="benefits" className="py-20 bg-white">
-        <div className="container px-4 mx-auto sm:px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold sm:text-4xl">
-              Why enterprises choose ServiceFlow
-            </h2>
-            <p className="mt-4 text-lg text-neutral-600 max-w-3xl mx-auto">
-              Built for organizations that demand scalability, security, and data-driven customer service operations.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
-            <div className="space-y-8">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-full bg-[#EED9C4] flex items-center justify-center shrink-0">
-                  <Cloud className="h-5 w-5 text-neutral-800" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    SaaS-Ready Scalability
-                  </h3>
-                  <p className="text-neutral-600">
-                    Multi-tenant architecture ensures each organization operates in complete isolation while sharing a unified, scalable infrastructure. Perfect for growing SaaS platforms.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-full bg-[#EED9C4] flex items-center justify-center shrink-0">
-                  <Lock className="h-5 w-5 text-neutral-800" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    Enterprise-Grade Security
-                  </h3>
-                  <p className="text-neutral-600">
-                    Tenant-scoped data access, role-based permissions, secure API authentication, and comprehensive audit trails ensure your customer data remains protected.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-full bg-[#EED9C4] flex items-center justify-center shrink-0">
-                  <TrendingUp className="h-5 w-5 text-neutral-800" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    AI-Driven Operations
-                  </h3>
-                  <p className="text-neutral-600">
-                    ML-powered routing with confidence scoring automatically assigns complaints to the right teams. Track patterns, resolution metrics, and continuously improve routing accuracy.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-8">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-full bg-[#EED9C4] flex items-center justify-center shrink-0">
-                  <Zap className="h-5 w-5 text-neutral-800" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    Seamless Integration
-                  </h3>
-                  <p className="text-neutral-600">
-                    API-first design enables easy integration with existing CRM systems, mobile apps, web platforms, and third-party services through well-documented REST endpoints.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-full bg-[#EED9C4] flex items-center justify-center shrink-0">
-                  <ShieldCheck className="h-5 w-5 text-neutral-800" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    Regulatory Compliance
-                  </h3>
-                  <p className="text-neutral-600">
-                    Complete audit trails, data retention policies, and compliance-ready documentation help you meet industry regulations and pass audits with confidence.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-full bg-[#EED9C4] flex items-center justify-center shrink-0">
-                  <Award className="h-5 w-5 text-neutral-800" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    Production-Ready ML
-                  </h3>
-                  <p className="text-neutral-600">
-                    ML routing is live and operational. TF-IDF vectorization, model versioning, and confidence-based assignment ensure reliable, scalable complaint routing out of the box.
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* FAQ Section */}
-      <section className="py-20 bg-[#F9F2EB]">
-        <div className="container px-4 mx-auto sm:px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold sm:text-4xl">
-              Frequently Asked Questions
-            </h2>
-            <p className="mt-4 text-lg text-neutral-600 max-w-3xl mx-auto">
-              Learn more about ServiceFlow's architecture and capabilities.
-            </p>
-          </div>
-
-          <div className="max-w-5xl mx-auto">
-            <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="item-1">
-                <AccordionTrigger className="text-lg font-medium cursor-pointer">
-                  How does multi-tenant isolation work in ServiceFlow?
+        <section id="faq" className="py-20 bg-[#0a0d12] border-b border-white/10">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6">
+            <h2 className="text-3xl font-bold tracking-tight mb-10">Questions</h2>
+            <Accordion type="single" collapsible className="w-full space-y-2">
+              <AccordionItem value="a1" className="border-white/10 rounded-lg px-4 bg-[#0c0f14]">
+                <AccordionTrigger className="text-left hover:no-underline">
+                  What do I integrate first?
                 </AccordionTrigger>
-                <AccordionContent className="text-neutral-600 text-lg">
-                  ServiceFlow uses tenant-scoped data access at the database level, ensuring each organization's complaints, users, and configurations are completely isolated. API keys are organization-specific, and all queries are automatically filtered by tenant ID to prevent cross-tenant data access.
+                <AccordionContent className="text-zinc-400 leading-relaxed">
+                  Generate an API key, then call{" "}
+                  <code className="text-emerald-400/90 text-xs">POST /api/complaints/create</code>{" "}
+                  from your server or edge function with the Bearer header. Everything else is
+                  operational tooling.
                 </AccordionContent>
               </AccordionItem>
-
-              <AccordionItem value="item-2">
-                <AccordionTrigger className="text-lg font-medium cursor-pointer">
-                  What APIs does ServiceFlow provide?
+              <AccordionItem value="a2" className="border-white/10 rounded-lg px-4 bg-[#0c0f14]">
+                <AccordionTrigger className="text-left hover:no-underline">
+                  Is data isolated per customer?
                 </AccordionTrigger>
-                <AccordionContent className="text-neutral-600 text-lg">
-                  ServiceFlow offers comprehensive REST APIs for complaint submission, retrieval, updates, assignment, and status management. Additional endpoints support user management, department configuration, analytics queries, and webhook integrations for real-time notifications.
+                <AccordionContent className="text-zinc-400 leading-relaxed">
+                  Yes — tenants are first-class. Keys and rows are scoped so two organizations never
+                  see each other&apos;s payloads.
                 </AccordionContent>
               </AccordionItem>
-
-              <AccordionItem value="item-3">
-                <AccordionTrigger className="text-lg font-medium cursor-pointer">
-                  How does role-based access control work?
+              <AccordionItem value="a3" className="border-white/10 rounded-lg px-4 bg-[#0c0f14]">
+                <AccordionTrigger className="text-left hover:no-underline">
+                  Do I need this dashboard?
                 </AccordionTrigger>
-                <AccordionContent className="text-neutral-600 text-lg">
-                  ServiceFlow supports customizable roles (Admin, Manager, Staff, Support) with granular permissions. Admins can configure organizational settings, managers can assign and oversee complaints, while staff can only view and update assigned cases. All roles are tenant-scoped for security.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-4">
-                <AccordionTrigger className="text-lg font-medium cursor-pointer">
-                  How does ML-powered routing work?
-                </AccordionTrigger>
-                <AccordionContent className="text-neutral-600 text-lg">
-                  ServiceFlow uses TF-IDF vectorization to convert complaint text and department/employee keywords into numerical vectors. When a complaint is submitted, the ML service calculates cosine similarity between the complaint vector and all department/employee vectors, automatically routing to the best match with confidence scores. Low-confidence assignments are flagged for review.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-5">
-                <AccordionTrigger className="text-lg font-medium cursor-pointer">
-                  What ML capabilities are currently available?
-                </AccordionTrigger>
-                <AccordionContent className="text-neutral-600 text-lg">
-                  ServiceFlow includes a production-ready ML classifier service built with FastAPI. It supports department and employee routing modes, generates TF-IDF vectors from keywords, stores vectors in-database for fast lookups, and provides confidence-based assignment with automatic review flags. Model versioning ensures you can retrain and deploy new models without downtime.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-6">
-                <AccordionTrigger className="text-lg font-medium cursor-pointer">
-                  What compliance features does ServiceFlow offer?
-                </AccordionTrigger>
-                <AccordionContent className="text-neutral-600 text-lg">
-                  ServiceFlow maintains complete audit trails for all actions, supports data retention policies, provides secure API authentication, and enables GDPR-compliant data export and deletion. All changes to complaints are logged with timestamps and user attribution for regulatory compliance.
+                <AccordionContent className="text-zinc-400 leading-relaxed">
+                  Operators use it for structure (people, departments, keys). Your product only needs
+                  the HTTP API for intake.
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-white">
-        <div className="container px-4 mx-auto sm:px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold sm:text-4xl">
-              Simple, Transparent Pricing
-            </h2>
-            <p className="mt-4 text-lg text-neutral-600 max-w-3xl mx-auto">
-              Choose the plan that fits your organization's needs. All plans include ML-powered routing and multi-tenant isolation.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {/* Starter Plan */}
-            <Card className="border-2 border-neutral-200 hover:border-[#EED9C4] transition-colors">
-              <CardHeader>
-                <CardTitle className="text-2xl">Starter</CardTitle>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold">$99</span>
-                  <span className="text-neutral-600">/month</span>
+        <section className="py-20">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 to-[#0c0f14] text-zinc-100 overflow-hidden">
+              <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-8 p-8 md:p-10">
+                <div>
+                  <h2 className="text-2xl font-bold">Ready to route real traffic?</h2>
+                  <p className="mt-2 text-zinc-400 max-w-xl">
+                    Spin up a tenant, plug in your key, and send your first classified complaint in
+                    minutes.
+                  </p>
                 </div>
-                <p className="text-sm text-neutral-600 mt-2">Perfect for small teams</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-3">
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Up to 1,000 complaints/month</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">ML-powered routing</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Up to 5 departments</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Up to 10 employees</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">API access included</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Email support</span>
-                  </li>
-                </ul>
-                <Button className="w-full bg-[#EED9C4] text-neutral-900 hover:bg-[#E6C8B4] mt-6">
-                  Get Started
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Professional Plan */}
-            <Card className="border-2 border-[#EED9C4] relative shadow-lg">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <span className="bg-[#EED9C4] text-neutral-900 px-4 py-1 rounded-full text-sm font-medium">
-                  Most Popular
-                </span>
-              </div>
-              <CardHeader>
-                <CardTitle className="text-2xl">Professional</CardTitle>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold">$299</span>
-                  <span className="text-neutral-600">/month</span>
+                <div className="flex flex-wrap gap-3 shrink-0">
+                  <Link href="/register">
+                    <Button
+                      size="lg"
+                      className="bg-emerald-500 hover:bg-emerald-400 text-[#0c0f14] font-semibold gap-2"
+                    >
+                      Get started <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/login">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-white/25 bg-transparent text-white hover:bg-white/10"
+                    >
+                      Sign in
+                    </Button>
+                  </Link>
                 </div>
-                <p className="text-sm text-neutral-600 mt-2">For growing businesses</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-3">
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Up to 10,000 complaints/month</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Advanced ML routing</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Unlimited departments</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Unlimited employees</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Priority API access</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Advanced analytics</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Priority support</span>
-                  </li>
-                </ul>
-                <Button className="w-full bg-neutral-900 text-white hover:bg-neutral-800 mt-6">
-                  Get Started
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Enterprise Plan */}
-            <Card className="border-2 border-neutral-200 hover:border-[#EED9C4] transition-colors">
-              <CardHeader>
-                <CardTitle className="text-2xl">Enterprise</CardTitle>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold">Custom</span>
-                </div>
-                <p className="text-sm text-neutral-600 mt-2">For large organizations</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-3">
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Unlimited complaints</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Custom ML models</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Dedicated infrastructure</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">SLA guarantees</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">Custom integrations</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">24/7 dedicated support</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-[#EED9C4]" />
-                    <span className="text-sm">On-premise deployment</span>
-                  </li>
-                </ul>
-                <Button className="w-full bg-[#EED9C4] text-neutral-900 hover:bg-[#E6C8B4] mt-6">
-                  Contact Sales
-                </Button>
               </CardContent>
             </Card>
           </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      {/* CTA Section */}
-      <section className="py-16 bg-[#EED9C4]">
-        <div className="container px-4 mx-auto sm:px-6">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl font-bold sm:text-4xl text-neutral-900">
-              Ready to automate your complaint management?
-            </h2>
-            <p className="mt-4 text-lg text-neutral-700">
-              Join forward-thinking organizations using AI-powered routing to deliver faster, more accurate customer support.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                size="lg"
-                className="bg-neutral-900 text-white hover:bg-neutral-800"
-              >
-                Get API Access
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-neutral-900 text-neutral-900 hover:bg-neutral-200"
-              >
-                View Documentation
-              </Button>
-            </div>
+      <footer className="border-t border-white/10 py-10 text-sm text-zinc-500">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex items-center gap-2 font-medium text-zinc-400">
+            <Terminal className="h-4 w-4 text-emerald-500/80" />
+            ServiceFlow
           </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-12 bg-neutral-900 text-white">
-        <div className="container px-4 mx-auto sm:px-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 rounded-md bg-[#EED9C4] flex items-center justify-center">
-                  <ClipboardCheck size={20} className="text-neutral-800" />
-                </div>
-                <span className="text-xl font-bold">ServiceFlow</span>
-              </div>
-              <p className="text-sm text-neutral-400">
-                Enterprise-grade complaint management for modern, scalable businesses.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Platform</h3>
-              <ul className="space-y-2">
-                <li>
-                  <a href="#features" className="text-sm text-neutral-400 hover:text-white">
-                    Features
-                  </a>
-                </li>
-                <li>
-                  <a href="#pricing" className="text-sm text-neutral-400 hover:text-white">
-                    Pricing
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    API Documentation
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    Security
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    Integrations
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Resources</h3>
-              <ul className="space-y-2">
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    Developer Docs
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    API Reference
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    Case Studies
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    Support
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Company</h3>
-              <ul className="space-y-2">
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    About Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    Enterprise
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    Contact
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                    Partners
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="mt-12 pt-8 border-t border-neutral-800 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-sm text-neutral-400">
-              &copy; {new Date().getFullYear()} ServiceFlow. All rights reserved.
-            </p>
-            <div className="mt-4 md:mt-0 flex space-x-6">
-              <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                Privacy Policy
-              </a>
-              <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                Terms of Service
-              </a>
-              <a href="#" className="text-sm text-neutral-400 hover:text-white">
-                Security
-              </a>
-            </div>
+          <div className="flex flex-wrap gap-6">
+            <Link href="/login" className="hover:text-zinc-300">
+              Sign in · API docs
+            </Link>
+            <Link href="/register" className="hover:text-zinc-300">
+              Register
+            </Link>
+            <span className="text-zinc-600">
+              Base URL: <code className="text-zinc-500">{API_BASE}/api</code>
+            </span>
           </div>
         </div>
       </footer>

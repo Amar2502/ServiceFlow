@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from app.schemas import VectorizeRequest, PredictRequest
-from app.ml.trainer import train_departments
-from app.ml.predicter import predict_department
+from app.ml.trainer import fit_tfidf_on_profiles
+from app.ml.predicter import predict_profiles
 from app.ml import state
 import logging
 
@@ -11,8 +11,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Department Classification API",
-    description="ML-powered department classification service",
+    title="Routing Mode Classification API",
+    description="ML-powered routing mode classification service",
     version="1.0.0"
 )
 
@@ -40,11 +40,11 @@ async def health_check():
     }
 
 
-@app.post("/departments/vectorize")
-async def vectorize_departments(payload: VectorizeRequest):
-    """Train/retrain the department classification model"""
+@app.post("/profile/vectorize")
+async def vectorize_profiles(payload: VectorizeRequest):
+    """Train/retrain the profile classification model"""
     try:
-        result = train_departments(payload.departments, save_model=True)
+        result = fit_tfidf_on_profiles(payload.profile_keywords, save_model=True)
         logger.info(f"Model trained successfully. Version: {result.get('model_version')}")
         return result
     except ValueError as e:
@@ -54,17 +54,17 @@ async def vectorize_departments(payload: VectorizeRequest):
         raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
 
 
-@app.post("/departments/predict")
+@app.post("/profile/predict")
 async def predict(payload: PredictRequest):
-    """Predict department for a complaint using provided department vectors"""
+    """Predict profile for a complaint using provided profile vectors"""
     try:
         if state.tfidf_vectorizer is None:
             raise HTTPException(
                 status_code=400,
-                detail="Model not initialized. Call /departments/vectorize first."
+                detail="Model not initialized. Call /profile/vectorize first."
             )
         
-        return predict_department(
+        return predict_profiles(
             payload.complaint,
             payload.vectors,
             payload.confidence_threshold

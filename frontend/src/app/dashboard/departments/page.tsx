@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 interface Department {
@@ -58,22 +58,18 @@ export default function DepartmentsPage() {
 
   const fetchDepartments = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/departments/all", {
-        withCredentials: true,
-      });
-      setDepartments(response.data);
-    } catch (error) {
+      const data = await api.get<Department[]>("/api/departments/all");
+      setDepartments(data);
+    } catch {
       toast.error("Failed to fetch departments");
     }
   };
 
   const fetchDeletedDepartments = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/departments/deleted", {
-        withCredentials: true,
-      });
-      setDeletedDepartments(response.data);
-    } catch (error) {
+      const data = await api.get<Department[]>("/api/departments/deleted");
+      setDeletedDepartments(data);
+    } catch {
       toast.error("Failed to fetch deleted departments");
     }
   };
@@ -83,16 +79,12 @@ export default function DepartmentsPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await axios.post(
-        "http://localhost:5000/api/departments/create",
-        formData,
-        { withCredentials: true }
-      );
+      await api.post("/api/departments/create", formData);
       toast.success("Department created successfully");
       setFormData({ name: "", keywords: "" });
       fetchDepartments();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create department");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create department");
     } finally {
       setLoading(false);
     }
@@ -100,31 +92,23 @@ export default function DepartmentsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await axios.patch(
-        "http://localhost:5000/api/departments/delete",
-        { departmentId: id },
-        { withCredentials: true }
-      );
+      await api.patch("/api/departments/delete", { departmentId: id });
       toast.success("Department deleted successfully");
       fetchDepartments();
       fetchDeletedDepartments();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete department");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete department");
     }
   };
 
   const handleRestore = async (id: string) => {
     try {
-      await axios.patch(
-        "http://localhost:5000/api/departments/restore",
-        { departmentId: id },
-        { withCredentials: true }
-      );
+      await api.patch("/api/departments/restore", { departmentId: id });
       toast.success("Department restored successfully");
       fetchDepartments();
       fetchDeletedDepartments();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to restore department");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to restore department");
     }
   };
 

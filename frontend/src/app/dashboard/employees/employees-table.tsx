@@ -46,7 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
-import axios from "axios";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 // Define type for employee data matching backend schema
@@ -85,10 +85,8 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
 
   const fetchDepartments = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/departments/all", {
-        withCredentials: true,
-      });
-      setDepartments(response.data);
+      const data = await api.get<{ id: string; name: string }[]>("/api/departments/all");
+      setDepartments(data);
     } catch (error) {
       console.error("Failed to fetch departments");
     }
@@ -133,17 +131,16 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
     }
     setLoading(true);
     try {
-      await axios.patch(
-        "http://localhost:5000/api/employees/update-name",
-        { employeeId: selectedEmployee.id, name: formData.name.trim() },
-        { withCredentials: true }
-      );
+      await api.patch("/api/employees/update-name", {
+        employeeId: selectedEmployee.id,
+        name: formData.name.trim(),
+      });
       toast.success("Employee name updated successfully");
       setShowEditName(false);
       setSelectedEmployee(null);
       onRefresh?.();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to update name");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update name");
     } finally {
       setLoading(false);
     }
@@ -153,26 +150,16 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
     if (!selectedEmployee) return;
     setLoading(true);
     try {
-      // Note: This endpoint needs to be added to backend routes
-      // PATCH /api/employees/update-keywords
-      await axios.patch(
-        "http://localhost:5000/api/employees/update-keywords",
-        {
-          employeeId: selectedEmployee.id,
-          keywords: formData.keywords,
-        },
-        { withCredentials: true }
-      );
+      await api.post("/api/employees/create-vectors", {
+        employeeId: selectedEmployee.id,
+        keywords: formData.keywords,
+      });
       toast.success("Keywords updated successfully");
       setShowEditKeywords(false);
       setSelectedEmployee(null);
       onRefresh?.();
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        toast.error("Endpoint not found. Please add PATCH /api/employees/update-keywords to backend routes.");
-      } else {
-        toast.error(error.response?.data?.message || "Failed to update keywords");
-      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update routing profile");
     } finally {
       setLoading(false);
     }
@@ -185,20 +172,16 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
     }
     setLoading(true);
     try {
-      await axios.patch(
-        "http://localhost:5000/api/employees/map-to-department",
-        {
-          employeeId: selectedEmployee.id,
-          departmentId: formData.departmentId,
-        },
-        { withCredentials: true }
-      );
+      await api.patch("/api/employees/map-to-department", {
+        employeeId: selectedEmployee.id,
+        departmentId: formData.departmentId,
+      });
       toast.success("Employee mapped to department successfully");
       setShowMapDepartment(false);
       setSelectedEmployee(null);
       onRefresh?.();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to map employee");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to map employee");
     } finally {
       setLoading(false);
     }
@@ -208,17 +191,13 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
     if (!selectedEmployee) return;
     setLoading(true);
     try {
-      await axios.patch(
-        "http://localhost:5000/api/employees/delete",
-        { employeeId: selectedEmployee.id },
-        { withCredentials: true }
-      );
+      await api.patch("/api/employees/delete", { employeeId: selectedEmployee.id });
       toast.success("Employee deleted successfully");
       setShowDelete(false);
       setSelectedEmployee(null);
       onRefresh?.();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete employee");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete employee");
     } finally {
       setLoading(false);
     }
@@ -228,17 +207,13 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
     if (!selectedEmployee) return;
     setLoading(true);
     try {
-      await axios.patch(
-        "http://localhost:5000/api/employees/restore",
-        { employeeId: selectedEmployee.id },
-        { withCredentials: true }
-      );
+      await api.patch("/api/employees/restore", { employeeId: selectedEmployee.id });
       toast.success("Employee restored successfully");
       setShowRestore(false);
       setSelectedEmployee(null);
       onRefresh?.();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to restore employee");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to restore employee");
     } finally {
       setLoading(false);
     }

@@ -15,12 +15,14 @@ import {
 } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
-import axios from "axios";
 import Link from "next/link";
+import { useAuth } from "@/components/auth-provider";
+import { api } from "@/lib/api";
 
 export default function InvitePage() {
   const params = useParams();
   const router = useRouter();
+  const { login } = useAuth();
   const token = params.token as string;
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -47,21 +49,26 @@ export default function InvitePage() {
     setError("");
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/invite/login",
-        {
-          ...formData,
-          token,
-        },
-        { withCredentials: true }
-      );
+      const data = await api.post<{
+        userId: string;
+        tenantId: string;
+        employeeId: string;
+        role: "ADMIN" | "AGENT";
+      }>("/api/invite/login", {
+        ...formData,
+        token,
+      });
 
-      if (response.data) {
-        router.push("/dashboard");
-      }
-    } catch (err: any) {
+      login({
+        userId: data.userId,
+        tenantId: data.tenantId,
+        role: data.role,
+        employeeId: data.employeeId,
+      });
+      router.push("/dashboard");
+    } catch (err: unknown) {
       setError(
-        err.response?.data?.message || "An error occurred. Please try again."
+        err instanceof Error ? err.message : "An error occurred. Please try again."
       );
     } finally {
       setLoading(false);

@@ -1,18 +1,17 @@
-from pydantic import BaseModel, Field
-from typing import List, Dict
+from pydantic import BaseModel
+from typing import List, Dict, Union
 
-
-class DepartmentInput(BaseModel):
-    id: str = Field(..., description="Department UUID identifier")
-    name: str
-    keyword: List[str]
+# One row per keyword from /profile/vectorize, or a single aggregated row
+Vector1D = List[float]
+Vector2D = List[Vector1D]
+ProfileVector = Union[Vector1D, Vector2D]
 
 
 class VectorizeRequest(BaseModel):
-    departments: List[DepartmentInput]
+    profile_keywords: List[str]
 
 
 class PredictRequest(BaseModel):
     complaint: str
-    vectors: Dict[str, List[float]]  # Department name -> vector mapping
-    confidence_threshold: float = 0.8
+    vectors: Dict[str, ProfileVector]
+    confidence_threshold: float = 0.6

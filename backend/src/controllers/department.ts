@@ -17,10 +17,10 @@ export const createDepartment = async (req: Request, res: Response) => {
 
   // ✅ Clean keywords string and convert to array
   const keywordArray = keywords
-    .replace(/[^\w\s]/g, "") // remove punctuation
+    .replace(/[^\w\s]/g, "")
     .trim()
-    .split(/\s+/)            // split by spaces
-    .filter(Boolean);        // remove empty strings
+    .split(/\s+/)
+    .filter(Boolean);
 
   if (keywordArray.length === 0) {
     return res.status(400).json({ message: "At least one keyword is required" });
@@ -33,44 +33,53 @@ export const createDepartment = async (req: Request, res: Response) => {
   try {
     await client.query("BEGIN");
 
-    // 1️⃣ Create department
-    const insertResult = await client.query(
-      `INSERT INTO departments (name, keywords, tenant_id)
-       VALUES ($1, $2, $3)
-       RETURNING id, name`,
-      [name, keywordArray, tenantId]
+    // TF-IDF is one global model per classifier process: every vectorize refits vocabulary.
+    // Fit once on ALL tenant department keywords so every stored vector matches the same model.
+    const existingResult = await client.query(
+      `SELECT id, keywords FROM departments WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC`,
+      [tenantId]
     );
 
-    if (!insertResult.rows || insertResult.rows.length === 0) {
-      throw new Error("Failed to create department - no data returned");
+    type Range = { id: string | null; start: number; len: number; isNew: boolean };
+    const units: { id: string | null; keywords: string[] }[] = [
+      ...existingResult.rows.map((r) => ({
+        id: r.id as string,
+        keywords: Array.isArray(r.keywords) ? (r.keywords as string[]) : [],
+      })),
+      { id: null, keywords: keywordArray },
+    ];
+
+    const flat: string[] = [];
+    const ranges: Range[] = [];
+    let offset = 0;
+    for (const u of units) {
+      if (u.keywords.length === 0) continue;
+      ranges.push({
+        id: u.id,
+        start: offset,
+        len: u.keywords.length,
+        isNew: u.id === null,
+      });
+      flat.push(...u.keywords);
+      offset += u.keywords.length;
     }
 
-    const departmentId = insertResult.rows[0]?.id;
-
-    if (!departmentId) {
-      throw new Error("Failed to create department - id is null or undefined");
+    if (flat.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "At least one keyword is required" });
     }
 
-    console.log("Created department with ID:", departmentId);
-
-    // 2️⃣ Vectorize THIS department only
-    const response = await fetch(`${config.ML_SERVICE_URL}/departments/vectorize`, {
+    const response = await fetch(`${config.ML_SERVICE_URL}/profile/vectorize`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        departments: [
-          {
-            id: departmentId,
-            name,
-            keyword: keywordArray, // ✅ send as array
-          },
-        ],
+        profile_keywords: flat,
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
-      let errorMessage = "Department vectorization failed";
+      let errorMessage = "Department vectorization failed, Try again later";
 
       if (Array.isArray(errorData)) {
         errorMessage = errorData
@@ -80,7 +89,8 @@ export const createDepartment = async (req: Request, res: Response) => {
           )
           .join("; ");
       } else if (errorData.detail) {
-        errorMessage = errorData.detail;
+        errorMessage =
+          typeof errorData.detail === "string" ? errorData.detail : JSON.stringify(errorData.detail);
       } else if (errorData.message) {
         errorMessage = errorData.message;
       }
@@ -90,34 +100,47 @@ export const createDepartment = async (req: Request, res: Response) => {
     }
 
     const vectorData = await response.json();
-    const vector = vectorData.vectors?.[name];
+    const matrix = vectorData.vectors as unknown[] | undefined;
 
-    if (!vector) {
+    if (!matrix || !Array.isArray(matrix)) {
       throw new Error("Vector not returned by ML service");
     }
 
-    // 3️⃣ Store vector
-    await client.query(
-      `UPDATE departments
-       SET vector = $1
-       WHERE id = $2 AND tenant_id = $3`,
-      [JSON.stringify(vector), departmentId, tenantId]
-    );
+    let newDepartmentId: string | null = null;
+    for (const r of ranges) {
+      const block = matrix.slice(r.start, r.start + r.len);
+      const stored = JSON.stringify(block);
+      if (r.isNew) {
+        const ins = await client.query(
+          `INSERT INTO departments (name, keywords, vector, tenant_id) VALUES ($1, $2, $3, $4) RETURNING id`,
+          [name, keywordArray, stored, tenantId]
+        );
+        newDepartmentId = ins.rows[0].id as string;
+      } else if (r.id) {
+        await client.query(
+          `UPDATE departments SET vector = $1 WHERE id = $2 AND tenant_id = $3`,
+          [stored, r.id, tenantId]
+        );
+      }
+    }
+
+    if (!newDepartmentId) {
+      throw new Error("Failed to create department record");
+    }
 
     await client.query("COMMIT");
 
     return res.status(201).json({
       message: "Department created successfully",
       department: {
-        id: departmentId,
+        id: newDepartmentId,
         name,
         keywords: keywordArray,
       },
       vector_dimension: vectorData.vector_dimension,
-      model_version: vectorData.model_version,
     });
   } catch (err) {
-    await client.query("ROLLBACK");
+    await client.query("ROLLBACK").catch(() => {});
     console.error("Create department failed:", err);
 
     return res.status(500).json({

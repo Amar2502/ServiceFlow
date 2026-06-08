@@ -1,4 +1,4 @@
-import e, { Request, Response } from "express";
+import { Request, Response } from "express";
 import pool from "../config/db";
 import { config } from "../config/config";
 
@@ -8,6 +8,47 @@ interface CreateComplaintBody {
   customerName: string;
   customerEmail: string;
   externalReferenceId?: string;
+}
+
+type ProfilePredictResult = {
+  profile_id: string;
+  confidence: number;
+  needs_review: boolean;
+};
+
+async function callProfilePredict(
+  complaint: string,
+  vectors: Record<string, unknown>
+): Promise<ProfilePredictResult> {
+  const response = await fetch(`${config.ML_SERVICE_URL}/profile/predict`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      complaint,
+      vectors,
+      confidence_threshold: 0.6,
+    }),
+  });
+  const raw = await response.text();
+  let data: { detail?: unknown; profile_id?: string; confidence?: number; needs_review?: boolean } = {};
+  try {
+    data = JSON.parse(raw) as typeof data;
+  } catch {
+    /* non-JSON body */
+  }
+  if (!response.ok) {
+    const detail =
+      typeof data.detail === "string"
+        ? data.detail
+        : Array.isArray(data.detail)
+          ? JSON.stringify(data.detail)
+          : raw.slice(0, 800);
+    throw new Error(`ML routing failed (${response.status}): ${detail}`);
+  }
+  if (!data.profile_id) {
+    throw new Error("ML response missing profile_id");
+  }
+  return data as ProfilePredictResult;
 }
 
 export const createComplaint = async (req: Request, res: Response) => {
@@ -62,50 +103,50 @@ export const createComplaint = async (req: Request, res: Response) => {
         throw new Error("No department vectors found");
       }
 
-      const vectors: Record<string, number[]> = {};
+      const vectors: Record<string, unknown> = {};
       for (const d of deptResult.rows) {
-        vectors[d.name] = d.vector;
+        vectors[d.id] = d.vector;
       }
 
-      const response = await fetch(`${config.ML_SERVICE_URL}/departments/predict`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          complaint: complaintText,
-          vectors,
-          confidence_threshold: 0.8
-        })
-      });
+      const prediction = await callProfilePredict(complaintText, vectors);
 
-      if (!response.ok) {
-        throw new Error("Department prediction failed");
+      const selected_department = prediction.profile_id;
+
+      const department_name = deptResult.rows.find(d => d.id === selected_department)?.name;
+
+      if (!selected_department) {
+        throw new Error("Predicted routing mode not found");
       }
 
-      const prediction = await response.json();
-
-      const department = deptResult.rows.find(
-        d => d.name === prediction.department
+      const employees = await client.query(
+        `SELECT id, load FROM employees WHERE tenant_id = $1 AND department_id = $2 AND deleted_at IS NULL`,
+        [tenantId, selected_department]
       );
 
-      if (!department) {
-        throw new Error("Predicted department not found");
+      if (employees.rows.length === 0) {
+        throw new Error("No employees found");
       }
+
+      const employee_id = employees.rows.sort((a, b) => a.load - b.load)[0].id;
 
       await client.query(
         `INSERT INTO assignments 
-           (tenant_id, complaint_id, assignee_type, department_id)
-           VALUES ($1, $2, 'DEPARTMENT', $3)`,
-        [tenantId, complaintId, department.id]
+           (tenant_id, complaint_id, assignee_type, employee_id)
+           VALUES ($1, $2, 'EMPLOYEE', $3)`,
+        [tenantId, complaintId, employee_id]
       );
+
+      await client.query("UPDATE employees SET load = load + 1 WHERE id = $1", [employee_id]);
 
       await client.query("COMMIT");
 
       return res.status(201).json({
         message: "Complaint created and assigned",
+        complaintId,
         assignment: {
           assignee_type: "DEPARTMENT",
-          department_id: department.id,
-          department_name: department.name,
+          department_id: selected_department,
+          department_name: department_name,
           confidence: prediction.confidence,
           needs_review: prediction.needs_review
         }
@@ -114,7 +155,7 @@ export const createComplaint = async (req: Request, res: Response) => {
 
     if (routingMode === "EMPLOYEE") {
       const empResult = await client.query(
-        `SELECT e.id, e.title, e.vector, u.email
+        `SELECT e.id, e.title, e.vector, e.name, u.email
            FROM employees e
            JOIN users u ON u.id = e.user_id
            WHERE e.tenant_id = $1
@@ -127,52 +168,39 @@ export const createComplaint = async (req: Request, res: Response) => {
         throw new Error("No employee vectors found");
       }
 
-      const vectors: Record<string, number[]> = {};
+      const vectors: Record<string, unknown> = {};
       for (const e of empResult.rows) {
-        const key = e.email || `employee_${e.id}`;
-        vectors[key] = e.vector;
+        vectors[e.id] = e.vector;
       }
 
-      const response = await fetch(`${config.ML_SERVICE_URL}/departments/predict`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          complaint: complaintText,
-          vectors,
-          confidence_threshold: 0.8
-        })
-      });
+      const prediction = await callProfilePredict(complaintText, vectors);
 
-      if (!response.ok) {
-        throw new Error("Employee prediction failed");
-      }
+      const selected_employee = prediction.profile_id;
 
-      const prediction = await response.json();
+      const employee = empResult.rows.find(e => e.id === selected_employee);
 
-      const employee = empResult.rows.find(e => {
-        const key = e.email || `employee_${e.id}`;
-        return key === prediction.department;
-      });
-
-      if (!employee) {
-        throw new Error("Predicted employee not found");
+      if (!selected_employee || !employee) {
+        throw new Error("Predicted routing mode not found");
       }
 
       await client.query(
         `INSERT INTO assignments
            (tenant_id, complaint_id, assignee_type, employee_id)
            VALUES ($1, $2, 'EMPLOYEE', $3)`,
-        [tenantId, complaintId, employee.id]
+        [tenantId, complaintId, selected_employee]
       );
+
+      await client.query("UPDATE employees SET load = load + 1 WHERE id = $1", [selected_employee]);
 
       await client.query("COMMIT");
 
       return res.status(201).json({
         message: "Complaint created and assigned",
+        complaintId,
         assignment: {
           assignee_type: "EMPLOYEE",
           employee_id: employee.id,
-          employee_email: employee.email,
+          employee_name: employee.name,
           employee_title: employee.title,
           confidence: prediction.confidence,
           needs_review: prediction.needs_review

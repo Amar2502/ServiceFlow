@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { ComplaintsTable } from "./complaints-table";
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Key } from "lucide-react";
@@ -63,13 +63,10 @@ export default function ComplaintsPage() {
   const fetchComplaints = async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://localhost:5000/api/complaints/all", {
-        withCredentials: true,
-      });
-      setComplaints(response.data);
-    } catch (error: any) {
+      const data = await api.get<Complaint[]>("/api/complaints/all");
+      setComplaints(data);
+    } catch {
       toast.error("Failed to fetch complaints");
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -81,51 +78,39 @@ export default function ComplaintsPage() {
 
   const handleStatusUpdate = async (complaintId: string, newStatus: string) => {
     try {
-      await axios.patch(
-        "http://localhost:5000/api/complaints/update-status",
-        { complaintId, status: newStatus },
-        { withCredentials: true }
-      );
+      await api.patch("/api/complaints/update-status", { complaintId, status: newStatus });
       toast.success("Status updated successfully");
       fetchComplaints();
       setShowStatusDialog(false);
       setSelectedComplaint(null);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to update status");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update status");
     }
   };
 
   const handleDelete = async () => {
     if (!selectedComplaint) return;
     try {
-      await axios.patch(
-        "http://localhost:5000/api/complaints/delete",
-        { complaintId: selectedComplaint.id },
-        { withCredentials: true }
-      );
+      await api.patch("/api/complaints/delete", { complaintId: selectedComplaint.id });
       toast.success("Complaint deleted successfully");
       fetchComplaints();
       setShowDeleteDialog(false);
       setSelectedComplaint(null);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete complaint");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete complaint");
     }
   };
 
   const handleRestore = async () => {
     if (!selectedComplaint) return;
     try {
-      await axios.patch(
-        "http://localhost:5000/api/complaints/restore",
-        { complaintId: selectedComplaint.id },
-        { withCredentials: true }
-      );
+      await api.patch("/api/complaints/restore", { complaintId: selectedComplaint.id });
       toast.success("Complaint restored successfully");
       fetchComplaints();
       setShowRestoreDialog(false);
       setSelectedComplaint(null);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to restore complaint");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to restore complaint");
     }
   };
 

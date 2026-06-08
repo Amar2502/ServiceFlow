@@ -87,14 +87,20 @@ export const loginWithInvite = async (req: Request, res: Response) => {
     );
 
     const employeeResult = await client.query(
-      "INSERT INTO employees (tenant_id, user_id, title) VALUES ($1, $2, $3) RETURNING id",
-      [invite.tenant_id, userResult.rows[0].id, title]
+      "INSERT INTO employees (tenant_id, user_id, title, name) VALUES ($1, $2, $3, $4) RETURNING id",
+      [invite.tenant_id, userResult.rows[0].id, title, name]
     );
 
     await client.query("COMMIT");
 
     const authtoken: string = jwt.sign(
-      { userId: userResult.rows[0].id, tenantId: invite.tenant_id },
+      
+      { userId: userResult.rows[0].id, 
+        tenantId: invite.tenant_id, 
+        employeeId: employeeResult.rows[0].id, 
+        role: invite.role 
+      },
+
       config.JWT_SECRET,
       { expiresIn: "30d" }
     );
@@ -107,7 +113,6 @@ export const loginWithInvite = async (req: Request, res: Response) => {
         userId: userResult.rows[0].id,
         tenantId: invite.tenant_id,
         employeeId: employeeResult.rows[0].id,
-        token: authtoken,
         role: invite.role,
         message: "Invite login successful" });
 
