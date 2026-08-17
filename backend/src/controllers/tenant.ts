@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import pool from "../config/db";
+import { db } from "../config/db";
 
 export const updateTenantName = async (req: Request, res: Response) => {
 
@@ -10,22 +10,21 @@ export const updateTenantName = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-
-        const result = await client.query("UPDATE tenants SET name = $1 WHERE id = $2 RETURNING id, name", [name, tenantId]);
+        const tenant = await db.tenant.update({
+            where: { id: tenantId },
+            data: { name },
+            select: { id: true, name: true }
+        });
 
         res.status(200).json({
-            id: result.rows[0].id,
-            name: result.rows[0].name,
+            id: tenant.id,
+            name: tenant.name,
             message: "Tenant updated successfully"
         });
         
     } catch (err) {
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
 
 }
@@ -39,20 +38,19 @@ export const updateTenantRoutingMode = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-        
-        const result = await client.query("UPDATE tenants SET routing_mode = $1 WHERE id = $2 RETURNING id, routing_mode", [routingMode, tenantId]);
+        const tenant = await db.tenant.update({
+            where: { id: tenantId },
+            data: { routingMode },
+            select: { id: true, routingMode: true }
+        });
 
         res.status(200).json({
-            id: result.rows[0].id,
-            routing_mode: result.rows[0].routing_mode,
+            id: tenant.id,
+            routing_mode: tenant.routingMode,
             message: "Tenant routing mode updated successfully"
         });
     } catch (err) {
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
 }

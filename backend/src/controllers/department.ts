@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
-import pool from "../config/db";
+import { db } from "../config/db";
 import { config } from "../config/config";
+import { Prisma } from "../generated/prisma";
 
 export const createDepartment = async (req: Request, res: Response) => {
   const { name, keywords } = req.body as { name: string; keywords: string };
@@ -28,23 +29,18 @@ export const createDepartment = async (req: Request, res: Response) => {
 
   console.log("Processed keywords:", keywordArray);
 
-  const client = await pool.connect();
-
   try {
-    await client.query("BEGIN");
-
-    // TF-IDF is one global model per classifier process: every vectorize refits vocabulary.
-    // Fit once on ALL tenant department keywords so every stored vector matches the same model.
-    const existingResult = await client.query(
-      `SELECT id, keywords FROM departments WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC`,
-      [tenantId]
-    );
+    const existingDepartments = await db.department.findMany({
+      where: { tenantId, deletedAt: null },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, keywords: true }
+    });
 
     type Range = { id: string | null; start: number; len: number; isNew: boolean };
     const units: { id: string | null; keywords: string[] }[] = [
-      ...existingResult.rows.map((r) => ({
-        id: r.id as string,
-        keywords: Array.isArray(r.keywords) ? (r.keywords as string[]) : [],
+      ...existingDepartments.map((r) => ({
+        id: r.id,
+        keywords: Array.isArray(r.keywords) ? r.keywords : [],
       })),
       { id: null, keywords: keywordArray },
     ];
@@ -65,7 +61,6 @@ export const createDepartment = async (req: Request, res: Response) => {
     }
 
     if (flat.length === 0) {
-      await client.query("ROLLBACK");
       return res.status(400).json({ message: "At least one keyword is required" });
     }
 
@@ -107,28 +102,34 @@ export const createDepartment = async (req: Request, res: Response) => {
     }
 
     let newDepartmentId: string | null = null;
-    for (const r of ranges) {
-      const block = matrix.slice(r.start, r.start + r.len);
-      const stored = JSON.stringify(block);
-      if (r.isNew) {
-        const ins = await client.query(
-          `INSERT INTO departments (name, keywords, vector, tenant_id) VALUES ($1, $2, $3, $4) RETURNING id`,
-          [name, keywordArray, stored, tenantId]
-        );
-        newDepartmentId = ins.rows[0].id as string;
-      } else if (r.id) {
-        await client.query(
-          `UPDATE departments SET vector = $1 WHERE id = $2 AND tenant_id = $3`,
-          [stored, r.id, tenantId]
-        );
+
+    await db.$transaction(async (tx) => {
+      for (const r of ranges) {
+        const block = matrix.slice(r.start, r.start + r.len) as unknown as Prisma.InputJsonValue;
+        if (r.isNew) {
+          const ins = await tx.department.create({
+            data: {
+              name,
+              keywords: keywordArray,
+              vector: block,
+              tenantId
+            },
+            select: { id: true }
+          });
+          newDepartmentId = ins.id;
+        } else if (r.id) {
+          await tx.department.updateMany({
+            where: { id: r.id, tenantId },
+            data: { vector: block }
+          });
+        }
       }
-    }
+    });
+
 
     if (!newDepartmentId) {
       throw new Error("Failed to create department record");
     }
-
-    await client.query("COMMIT");
 
     return res.status(201).json({
       message: "Department created successfully",
@@ -140,22 +141,17 @@ export const createDepartment = async (req: Request, res: Response) => {
       vector_dimension: vectorData.vector_dimension,
     });
   } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
     console.error("Create department failed:", err);
 
     return res.status(500).json({
       message: "Internal server error",
       error: err instanceof Error ? err.message : "Unknown error",
     });
-  } finally {
-    client.release();
   }
 };
 
 
 export const getAllDepartments = async (req: Request, res: Response) => {
-
-
     const tenantId = req.user?.tenantId;
 
     if (!tenantId) {
@@ -163,22 +159,29 @@ export const getAllDepartments = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-        const result = await client.query("SELECT * FROM departments WHERE tenant_id = $1 AND deleted_at IS NULL", [tenantId]);
-        res.status(200).json(result.rows);
+        const departments = await db.department.findMany({
+            where: { tenantId, deletedAt: null }
+        });
+
+        const formatted = departments.map((d) => ({
+            id: d.id,
+            tenant_id: d.tenantId,
+            name: d.name,
+            keywords: d.keywords,
+            vector: d.vector,
+            created_at: d.createdAt,
+            deleted_at: d.deletedAt
+        }));
+
+        res.status(200).json(formatted);
     } catch (err) { 
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
-
 }
 
 
 export const getAllDeletedDepartments = async (req: Request, res: Response) => {
-
     const tenantId = req.user?.tenantId;
 
     if (!tenantId) {
@@ -186,22 +189,29 @@ export const getAllDeletedDepartments = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-        const result = await client.query("SELECT * FROM departments WHERE tenant_id = $1 AND deleted_at IS NOT NULL", [tenantId]);
-        res.status(200).json(result.rows);
+        const departments = await db.department.findMany({
+            where: { tenantId, deletedAt: { not: null } }
+        });
+
+        const formatted = departments.map((d) => ({
+            id: d.id,
+            tenant_id: d.tenantId,
+            name: d.name,
+            keywords: d.keywords,
+            vector: d.vector,
+            created_at: d.createdAt,
+            deleted_at: d.deletedAt
+        }));
+
+        res.status(200).json(formatted);
     } catch (err) { 
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
-
 }
 
 
 export const deleteDepartment = async (req: Request, res: Response) => {
-    
     const { departmentId } = req.body as { tenantId: string, departmentId: string };
     
     if (!departmentId) {
@@ -216,22 +226,19 @@ export const deleteDepartment = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-        await client.query("UPDATE departments SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2", [departmentId, tenantId]);
+        await db.department.updateMany({
+            where: { id: departmentId, tenantId },
+            data: { deletedAt: new Date() }
+        });
         res.status(200).json({ message: "Department deleted successfully" });
     } catch (err) { 
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
-
 }
 
 
 export const restoreDepartment = async (req: Request, res: Response) => {
-    
     const { departmentId } = req.body as { departmentId: string };
 
     const tenantId = req.user?.tenantId;
@@ -246,15 +253,13 @@ export const restoreDepartment = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-        await client.query("UPDATE departments SET deleted_at = NULL WHERE id = $1 AND tenant_id = $2", [departmentId, tenantId]);
+        await db.department.updateMany({
+            where: { id: departmentId, tenantId },
+            data: { deletedAt: null }
+        });
         res.status(200).json({ message: "Department restored successfully" });
     } catch (err) {
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
-    
 }

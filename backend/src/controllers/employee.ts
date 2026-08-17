@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
-import pool from "../config/db";
+import { db } from "../config/db";
 import { config } from "../config/config";
+import { Prisma } from "../generated/prisma";
 
 export const getAllActiveEmployees = async (req: Request, res: Response) => {
 
@@ -13,28 +14,29 @@ export const getAllActiveEmployees = async (req: Request, res: Response) => {
         return;
     }
 
-    console.log(tenantId);
-
-    const client = await pool.connect();
-
     try {
-        const result = await client.query(
-            `SELECT e.id, e.tenant_id, e.user_id, e.department_id, e.load,
-              COALESCE(NULLIF(TRIM(e.name), ''), u.name) AS name,
-              e.title, e.keywords, e.vector, e.created_at, e.deleted_at
-             FROM employees e
-             INNER JOIN users u ON u.id = e.user_id
-             WHERE e.tenant_id = $1 AND e.deleted_at IS NULL`,
-            [tenantId]
-        );
+        const employees = await db.employee.findMany({
+            where: { tenantId, deletedAt: null },
+            include: { user: true }
+        });
 
-        console.log(result.rows);
+        const formatted = employees.map((e) => ({
+            id: e.id,
+            tenant_id: e.tenantId,
+            user_id: e.userId,
+            department_id: e.departmentId,
+            load: e.load,
+            name: (e.name && e.name.trim() !== '') ? e.name : e.user.name,
+            title: e.title,
+            keywords: e.keywords,
+            vector: e.vector,
+            created_at: e.createdAt,
+            deleted_at: e.deletedAt
+        }));
 
-        res.status(200).json(result.rows);
+        res.status(200).json(formatted);
     } catch (err) {
         return res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
 
 }
@@ -48,23 +50,29 @@ export const getAllDeletedEmployees = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-        const result = await client.query(
-            `SELECT e.id, e.tenant_id, e.user_id, e.department_id, e.load,
-              COALESCE(NULLIF(TRIM(e.name), ''), u.name) AS name,
-              e.title, e.keywords, e.vector, e.created_at, e.deleted_at
-             FROM employees e
-             INNER JOIN users u ON u.id = e.user_id
-             WHERE e.tenant_id = $1 AND e.deleted_at IS NOT NULL`,
-            [tenantId]
-        );
-        res.status(200).json(result.rows);
+        const employees = await db.employee.findMany({
+            where: { tenantId, deletedAt: { not: null } },
+            include: { user: true }
+        });
+
+        const formatted = employees.map((e) => ({
+            id: e.id,
+            tenant_id: e.tenantId,
+            user_id: e.userId,
+            department_id: e.departmentId,
+            load: e.load,
+            name: (e.name && e.name.trim() !== '') ? e.name : e.user.name,
+            title: e.title,
+            keywords: e.keywords,
+            vector: e.vector,
+            created_at: e.createdAt,
+            deleted_at: e.deletedAt
+        }));
+
+        res.status(200).json(formatted);
     } catch (err) {
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
 
 }
@@ -84,15 +92,14 @@ export const deleteEmployee = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-        await client.query("UPDATE employees SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2", [employeeId, tenantId]);
+        await db.employee.updateMany({
+            where: { id: employeeId, tenantId },
+            data: { deletedAt: new Date() }
+        });
         res.status(200).json({ message: "Employee deleted successfully" });
     } catch (err) {
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
 
 }
@@ -108,15 +115,14 @@ export const restoreEmployee = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-        await client.query("UPDATE employees SET deleted_at = NULL WHERE id = $1 AND tenant_id = $2", [employeeId, tenantId]);
+        await db.employee.updateMany({
+            where: { id: employeeId, tenantId },
+            data: { deletedAt: null }
+        });
         res.status(200).json({ message: "Employee restored successfully" });
     } catch (err) {
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
 
 }
@@ -137,15 +143,14 @@ export const mapEmployeeToDepartment = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-        await client.query("UPDATE employees SET department_id = $1 WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL", [departmentId, employeeId, tenantId]);
+        await db.employee.updateMany({
+            where: { id: employeeId, tenantId, deletedAt: null },
+            data: { departmentId }
+        });
         res.status(200).json({ message: "Employee mapped to department successfully" });
     } catch (err) {
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
 }
 
@@ -178,8 +183,6 @@ export const createEmployeeVectors = async (req: Request, res: Response) => {
         .filter(Boolean);
 
     console.log("Processed keywords:", keywordArray);
-
-    const client = await pool.connect();
 
     try {
 
@@ -221,17 +224,18 @@ export const createEmployeeVectors = async (req: Request, res: Response) => {
 
 
         // 3 update employee
-        const employeeResult = await client.query(
-            "UPDATE employees SET vector = $1 WHERE id = $2 AND tenant_id = $3 RETURNING id", 
-            [JSON.stringify(vector), employeeId, tenantId]
-        );
+        const employeeResult = await db.employee.update({
+            where: { id: employeeId },
+            data: { vector: vector as unknown as Prisma.InputJsonValue, keywords: keywordArray },
+            select: { id: true, name: true }
+        });
 
         res.status(200).json({
             message: "Employee vector updated successfully",
             employee: {
-                id: employeeResult.rows[0].id,
-            name: employeeResult.rows[0].name,
-            keywords: keywordArray,
+                id: employeeResult.id,
+                name: employeeResult.name,
+                keywords: keywordArray,
             },
             vector_dimension: vectorData.vector_dimension,
         });
@@ -239,8 +243,6 @@ export const createEmployeeVectors = async (req: Request, res: Response) => {
     }
     catch (err) {
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
 }
 
@@ -253,22 +255,29 @@ export const updateEmployeeName = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
-        const result = await client.query("UPDATE employees SET name = $1 WHERE id = $2 RETURNING id, name, user_id", [name, employeeId]);
+        const updated = await db.$transaction(async (tx) => {
+            const emp = await tx.employee.update({
+                where: { id: employeeId },
+                data: { name },
+                select: { id: true, name: true, userId: true }
+            });
 
-        await client.query("UPDATE users SET name = $1 WHERE id = $2", [name, result.rows[0].user_id]);
+            await tx.user.update({
+                where: { id: emp.userId },
+                data: { name }
+            });
+
+            return emp;
+        });
 
         res.status(200).json({
-            id: result.rows[0].id,
-            name: result.rows[0].name,
+            id: updated.id,
+            name: updated.name,
             message: "Employee name updated successfully"
         });
     } catch (err) {
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
 }
 
@@ -288,37 +297,36 @@ export const getMyAssignments = async (req: Request, res: Response) => {
         return;
     }
 
-    const client = await pool.connect();
-
     try {
+        const assignments = await db.assignment.findMany({
+            where: {
+                employeeId,
+                complaint: { deletedAt: null }
+            },
+            include: { complaint: true },
+            orderBy: { assignedAt: 'desc' }
+        });
 
-        const result = await client.query(`SELECT
-            a.id,
-            a.complaint_id,
-            a.assignee_type,
-            a.assigned_at,
-            c.title,
-            c.description,
-            c.customer_name,
-            c.customer_email,
-            c.status,
-            c.external_reference_id,
-            c.created_at,
-            c.updated_at
-            FROM assignments a
-            LEFT JOIN complaints c
-            ON a.complaint_id = c.id
-            WHERE a.employee_id = $1 AND c.deleted_at IS NULL
-            ORDER BY a.assigned_at DESC
-            `, [employeeId]);
+        const formatted = assignments.map((a) => ({
+            id: a.id,
+            complaint_id: a.complaintId,
+            assignee_type: a.assigneeType,
+            assigned_at: a.assignedAt,
+            title: a.complaint.title,
+            description: a.complaint.description,
+            customer_name: a.complaint.customerName,
+            customer_email: a.complaint.customerEmail,
+            status: a.complaint.status,
+            external_reference_id: a.complaint.externalReferenceId,
+            created_at: a.complaint.createdAt,
+            updated_at: a.complaint.updatedAt
+        }));
 
-        res.status(200).json(result.rows);
+        res.status(200).json(formatted);
 
     }
     catch (err) {
         res.status(500).json({ message: "Internal server error" });
-    } finally {
-        client.release();
     }
 
 }
