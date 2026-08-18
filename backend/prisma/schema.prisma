@@ -29,7 +29,7 @@ enum AssigneeType {
 }
 
 model Tenant {
-  id          String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id          String      @id @default(uuid()) @db.Uuid
   name        String
   routingMode RoutingMode @default(DEPARTMENT) @map("routing_mode")
   createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
@@ -46,7 +46,7 @@ model Tenant {
 }
 
 model User {
-  id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id           String     @id @default(uuid()) @db.Uuid
   tenantId     String     @map("tenant_id") @db.Uuid
   name         String?
   email        String
@@ -63,7 +63,7 @@ model User {
 }
 
 model ApiKey {
-  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id         String    @id @default(uuid()) @db.Uuid
   tenantId   String    @map("tenant_id") @db.Uuid
   keyHash    String    @map("key_hash")
   name       String?
@@ -78,7 +78,7 @@ model ApiKey {
 }
 
 model Department {
-  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String    @id @default(uuid()) @db.Uuid
   tenantId  String    @map("tenant_id") @db.Uuid
   name      String
   keywords  String[]
@@ -97,7 +97,7 @@ model Department {
 }
 
 model Employee {
-  id           String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id           String      @id @default(uuid()) @db.Uuid
   tenantId     String      @map("tenant_id") @db.Uuid
   userId       String      @map("user_id") @db.Uuid
   departmentId String?     @map("department_id") @db.Uuid
@@ -122,8 +122,22 @@ model Employee {
   @@map("employees")
 }
 
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum Sentiment {
+  HAPPY
+  NEUTRAL
+  FRUSTRATED
+  ANGRY
+}
+
 model Complaint {
-  id                    String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id                    String          @id @default(uuid()) @db.Uuid
   tenantId              String          @map("tenant_id") @db.Uuid
   title                 String
   description           String?
@@ -131,6 +145,12 @@ model Complaint {
   customerEmail         String?         @map("customer_email")
   externalReferenceId   String?         @map("external_reference_id")
   status                ComplaintStatus @default(open)
+  priority              Priority        @default(MEDIUM)
+  sentiment             Sentiment       @default(NEUTRAL)
+  summary               String?         @db.Text
+  suggestedReply        String?         @map("suggested_reply") @db.Text
+  aiReasoning           String?         @map("ai_reasoning") @db.Text
+  aiConfidence          Float?          @map("ai_confidence")
   isCorrectlyClassified Boolean         @default(false) @map("is_correctly_classified")
   createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt             DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
@@ -146,7 +166,7 @@ model Complaint {
 }
 
 model Assignment {
-  id           String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id           String       @id @default(uuid()) @db.Uuid
   tenantId     String       @map("tenant_id") @db.Uuid
   complaintId  String       @map("complaint_id") @db.Uuid
   assigneeType AssigneeType @map("assignee_type")
@@ -167,10 +187,10 @@ model Assignment {
 }
 
 model Invite {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
   tenantId  String   @map("tenant_id") @db.Uuid
   role      Role     @default(AGENT)
-  token     String   @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  token     String   @default(uuid()) @db.Uuid
   expiresAt DateTime @map("expires_at") @db.Timestamp(6)
   used      Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)

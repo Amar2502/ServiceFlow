@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { db } from "../config/db";
-import { config } from "../config/config";
-import { ComplaintStatus, Prisma } from "../generated/prisma";
+import { ComplaintStatus } from "../generated/prisma";
+import { GroqService, DepartmentRoutingContext } from "../services/groq.service";
 
 interface CreateComplaintBody {
   title: string;
@@ -11,71 +11,50 @@ interface CreateComplaintBody {
   externalReferenceId?: string;
 }
 
-type ProfilePredictResult = {
-  profile_id: string;
-  confidence: number;
-  needs_review: boolean;
-};
-
-async function callProfilePredict(
-  complaint: string,
-  vectors: Record<string, unknown>
-): Promise<ProfilePredictResult> {
-  const response = await fetch(`${config.ML_SERVICE_URL}/profile/predict`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      complaint,
-      vectors,
-      confidence_threshold: 0.6,
-    }),
-  });
-  const raw = await response.text();
-  let data: { detail?: unknown; profile_id?: string; confidence?: number; needs_review?: boolean } = {};
-  try {
-    data = JSON.parse(raw) as typeof data;
-  } catch {
-    /* non-JSON body */
-  }
-  if (!response.ok) {
-    const detail =
-      typeof data.detail === "string"
-        ? data.detail
-        : Array.isArray(data.detail)
-          ? JSON.stringify(data.detail)
-          : raw.slice(0, 800);
-    throw new Error(`ML routing failed (${response.status}): ${detail}`);
-  }
-  if (!data.profile_id) {
-    throw new Error("ML response missing profile_id");
-  }
-  return data as ProfilePredictResult;
-}
-
 export const createComplaint = async (req: Request, res: Response) => {
   const { title, description, customerName, customerEmail, externalReferenceId } =
     req.body as CreateComplaintBody;
 
   const tenantId = req.user?.tenantId;
-  const routingMode = req.user?.routingMode;
 
   if (!title || !customerName || !customerEmail) {
-    return res.status(400).json({ message: "All required fields must be provided" });
+    return res.status(400).json({ message: "All required fields (title, customerName, customerEmail) must be provided" });
   }
 
   if (!tenantId) {
-    return res.status(401).json({ message: "Unauthorized" });
+    return res.status(401).json({ message: "Unauthorized: Missing tenant context" });
   }
 
-  if (!routingMode) {
-    return res.status(400).json({ message: "Routing mode not configured" });
-  }
-
-  const complaintText = description ? `${title} ${description}` : title;
+  const complaintText = description ? `${title}\n${description}` : title;
 
   try {
     return await db.$transaction(async (tx) => {
-      // 1️⃣ Create complaint
+      // 1. Fetch tenant departments for zero-shot LLM matching
+      const dbDepartments = await tx.department.findMany({
+        where: {
+          tenantId,
+          deletedAt: null,
+        },
+      });
+
+      if (dbDepartments.length === 0) {
+        return res.status(400).json({
+          message: "No active departments configured for this tenant.",
+        });
+      }
+
+      // 2. Prepare department context list for Groq AI
+      const deptContexts: DepartmentRoutingContext[] = dbDepartments.map((d) => ({
+        id: d.id,
+        code: d.name.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+        name: d.name,
+        description: d.keywords && d.keywords.length > 0 ? d.keywords.join(", ") : d.name,
+      }));
+
+      // 3. Perform Sub-200ms Groq GenAI Multi-Task Extraction
+      const aiResult = await GroqService.classifyComplaint(complaintText, deptContexts);
+
+      // 4. Create Complaint with rich AI metadata
       const complaint = await tx.complaint.create({
         data: {
           title,
@@ -83,249 +62,244 @@ export const createComplaint = async (req: Request, res: Response) => {
           customerName,
           customerEmail,
           externalReferenceId,
-          tenantId
-        }
+          tenantId,
+          priority: aiResult.priority,
+          sentiment: aiResult.sentiment,
+          summary: aiResult.summary,
+          suggestedReply: aiResult.suggested_reply,
+          aiReasoning: aiResult.reasoning,
+          aiConfidence: aiResult.confidence,
+        },
       });
 
       const complaintId = complaint.id;
+      const targetDepartment = dbDepartments.find((d) => d.id === aiResult.department_id) || dbDepartments[0];
 
-      // 2️⃣ Routing
-      if (routingMode === "DEPARTMENT") {
-        const departments = await tx.department.findMany({
-          where: {
-            tenantId,
-            deletedAt: null,
-            vector: { not: Prisma.DbNull }
-          }
-        });
+      // 5. Dynamic Workload Balancing (Find least-loaded active agent in target department)
+      const activeEmployees = await tx.employee.findMany({
+        where: {
+          tenantId,
+          departmentId: targetDepartment.id,
+          deletedAt: null,
+        },
+        include: {
+          user: true,
+        },
+      });
 
-        if (departments.length === 0) {
-          throw new Error("No department vectors found");
-        }
+      let assignmentData: any = null;
 
-        const vectors: Record<string, unknown> = {};
-        for (const d of departments) {
-          vectors[d.id] = d.vector;
-        }
-
-        const prediction = await callProfilePredict(complaintText, vectors);
-
-        const selected_department = prediction.profile_id;
-        const department_name = departments.find(d => d.id === selected_department)?.name;
-
-        if (!selected_department) {
-          throw new Error("Predicted routing mode not found");
-        }
-
-        const employees = await tx.employee.findMany({
-          where: {
-            tenantId,
-            departmentId: selected_department,
-            deletedAt: null
-          }
-        });
-
-        if (employees.length === 0) {
-          throw new Error("No employees found");
-        }
-
-        const employee_id = [...employees].sort((a, b) => a.load - b.load)[0].id;
+      if (activeEmployees.length > 0) {
+        // Assign to agent with lowest active ticket load
+        const selectedEmployee = [...activeEmployees].sort((a, b) => a.load - b.load)[0];
 
         await tx.assignment.create({
           data: {
             tenantId,
             complaintId,
             assigneeType: "EMPLOYEE",
-            employeeId: employee_id
-          }
-        });
-
-        await tx.employee.update({
-          where: { id: employee_id },
-          data: { load: { increment: 1 } }
-        });
-
-        return res.status(201).json({
-          message: "Complaint created and assigned",
-          complaintId,
-          assignment: {
-            assignee_type: "DEPARTMENT",
-            department_id: selected_department,
-            department_name: department_name,
-            confidence: prediction.confidence,
-            needs_review: prediction.needs_review
-          }
-        });
-      }
-
-      if (routingMode === "EMPLOYEE") {
-        const employees = await tx.employee.findMany({
-          where: {
-            tenantId,
-            deletedAt: null,
-            vector: { not: Prisma.DbNull }
+            employeeId: selectedEmployee.id,
+            departmentId: targetDepartment.id,
           },
-          include: { user: true }
         });
 
-        if (employees.length === 0) {
-          throw new Error("No employee vectors found");
-        }
+        // Increment employee active load counter
+        await tx.employee.update({
+          where: { id: selectedEmployee.id },
+          data: { load: { increment: 1 } },
+        });
 
-        const vectors: Record<string, unknown> = {};
-        for (const e of employees) {
-          vectors[e.id] = e.vector;
-        }
-
-        const prediction = await callProfilePredict(complaintText, vectors);
-
-        const selected_employee = prediction.profile_id;
-
-        const employee = employees.find(e => e.id === selected_employee);
-
-        if (!selected_employee || !employee) {
-          throw new Error("Predicted routing mode not found");
-        }
-
+        assignmentData = {
+          assignee_type: "EMPLOYEE",
+          employee_id: selectedEmployee.id,
+          employee_name: selectedEmployee.user?.name || selectedEmployee.name,
+          employee_email: selectedEmployee.user?.email,
+          department_id: targetDepartment.id,
+          department_name: targetDepartment.name,
+        };
+      } else {
+        // Assign to Department Queue if no individual agents exist
         await tx.assignment.create({
           data: {
             tenantId,
             complaintId,
-            assigneeType: "EMPLOYEE",
-            employeeId: selected_employee
-          }
+            assigneeType: "DEPARTMENT",
+            departmentId: targetDepartment.id,
+          },
         });
 
-        await tx.employee.update({
-          where: { id: selected_employee },
-          data: { load: { increment: 1 } }
-        });
-
-        return res.status(201).json({
-          message: "Complaint created and assigned",
-          complaintId,
-          assignment: {
-            assignee_type: "EMPLOYEE",
-            employee_id: employee.id,
-            employee_name: employee.name,
-            employee_title: employee.title,
-            confidence: prediction.confidence,
-            needs_review: prediction.needs_review
-          }
-        });
+        assignmentData = {
+          assignee_type: "DEPARTMENT",
+          department_id: targetDepartment.id,
+          department_name: targetDepartment.name,
+        };
       }
 
-      throw new Error("Invalid routing mode");
+      // 6. Return 201 Created Response with full AI insights
+      return res.status(201).json({
+        message: "Complaint successfully created and routed via Groq GenAI",
+        complaintId,
+        ai_triage: {
+          priority: aiResult.priority,
+          sentiment: aiResult.sentiment,
+          summary: aiResult.summary,
+          suggested_reply: aiResult.suggested_reply,
+          reasoning: aiResult.reasoning,
+          confidence: aiResult.confidence,
+        },
+        assignment: assignmentData,
+      });
     });
   } catch (err) {
     console.error("Create complaint failed:", err);
-
     return res.status(500).json({
-      message: "Internal server error",
-      error: err instanceof Error ? err.message : "Unknown error"
+      message: "Internal server error during complaint creation & routing",
+      error: err instanceof Error ? err.message : "Unknown error",
     });
   }
 };
 
-
 export const getAllComplaints = async (req: Request, res: Response) => {
   const tenantId = req.user?.tenantId;
 
+  if (!tenantId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
   try {
     const complaints = await db.complaint.findMany({
-      where: { tenantId }
+      where: { tenantId, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      include: {
+        assignments: {
+          include: {
+            employee: { include: { user: true } },
+            department: true,
+          },
+        },
+      },
     });
 
-    const formatted = complaints.map(c => ({
-      id: c.id,
-      tenant_id: c.tenantId,
-      title: c.title,
-      description: c.description,
-      customer_name: c.customerName,
-      customer_email: c.customerEmail,
-      external_reference_id: c.externalReferenceId,
-      status: c.status,
-      is_correctly_classified: c.isCorrectlyClassified,
-      created_at: c.createdAt,
-      updated_at: c.updatedAt,
-      deleted_at: c.deletedAt
-    }));
+    const formatted = complaints.map((c) => {
+      const assignment = c.assignments[0] || null;
+      return {
+        id: c.id,
+        tenant_id: c.tenantId,
+        title: c.title,
+        description: c.description,
+        customer_name: c.customerName,
+        customer_email: c.customerEmail,
+        external_reference_id: c.externalReferenceId,
+        status: c.status,
+        priority: c.priority,
+        sentiment: c.sentiment,
+        summary: c.summary,
+        suggested_reply: c.suggestedReply,
+        ai_reasoning: c.aiReasoning,
+        ai_confidence: c.aiConfidence,
+        is_correctly_classified: c.isCorrectlyClassified,
+        created_at: c.createdAt,
+        updated_at: c.updatedAt,
+        assignment: assignment
+          ? {
+              assignee_type: assignment.assigneeType,
+              employee_id: assignment.employeeId,
+              employee_name: assignment.employee?.user?.name || assignment.employee?.name || null,
+              department_id: assignment.departmentId,
+              department_name: assignment.department?.name || null,
+            }
+          : null,
+      };
+    });
 
-    res.status(200).json(formatted);
+    return res.status(200).json(formatted);
   } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error("GetAllComplaints error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
-}
+};
 
 export const updateComplaintStatus = async (req: Request, res: Response) => {
-  const { complaintId, status } = req.body as { complaintId: string, status: string };
+  const { complaintId, status } = req.body as { complaintId: string; status: string };
 
   if (!complaintId || !status) {
-    res.status(400).json({ message: "All fields are required" });
-    return;
+    return res.status(400).json({ message: "complaintId and status are required" });
   }
 
   try {
-    const result = await db.complaint.update({
-      where: { id: complaintId },
-      data: { status: status as ComplaintStatus },
-      select: { id: true, status: true }
+    const updated = await db.$transaction(async (tx) => {
+      const complaint = await tx.complaint.update({
+        where: { id: complaintId },
+        data: { status: status as ComplaintStatus },
+        include: { assignments: true },
+      });
+
+      // If marked resolved, decrement employee load counter
+      if (status === "resolved" && complaint.assignments.length > 0) {
+        const assignment = complaint.assignments[0];
+        if (assignment.employeeId) {
+          await tx.employee.update({
+            where: { id: assignment.employeeId },
+            data: { load: { decrement: 1 } },
+          });
+        }
+      }
+
+      return complaint;
     });
 
-    res.status(200).json({
-      id: result.id,
-      status: result.status,
-      message: "Complaint status updated successfully"
+    return res.status(200).json({
+      id: updated.id,
+      status: updated.status,
+      message: "Complaint status updated successfully",
     });
   } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error("UpdateComplaintStatus error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
-}
+};
 
 export const deleteComplaint = async (req: Request, res: Response) => {
-  const { complaintId } = req.body as { tenantId: string, complaintId: string };
+  const { complaintId } = req.body as { complaintId: string };
 
   if (!complaintId) {
-    res.status(400).json({ message: "All fields are required" });
-    return;
+    return res.status(400).json({ message: "complaintId is required" });
   }
 
   try {
     await db.complaint.update({
       where: { id: complaintId },
-      data: { deletedAt: new Date() }
+      data: { deletedAt: new Date() },
     });
-    res.status(200).json({ message: "Complaint deleted successfully" });
+    return res.status(200).json({ message: "Complaint deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
-}
+};
 
 export const restoreComplaint = async (req: Request, res: Response) => {
-  const { complaintId } = req.body as { tenantId: string, complaintId: string };
+  const { complaintId } = req.body as { complaintId: string };
 
   if (!complaintId) {
-    res.status(400).json({ message: "All fields are required" });
-    return;
+    return res.status(400).json({ message: "complaintId is required" });
   }
 
   try {
     await db.complaint.update({
       where: { id: complaintId },
-      data: { deletedAt: null }
+      data: { deletedAt: null },
     });
-    res.status(200).json({ message: "Complaint restored successfully" });
+    return res.status(200).json({ message: "Complaint restored successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
-}
+};
 
 export const getComplaintDetails = async (req: Request, res: Response) => {
   const { complaintId } = req.params as { complaintId: string };
 
   if (!complaintId) {
-    res.status(400).json({ message: "All fields are required" });
-    return;
+    return res.status(400).json({ message: "complaintId parameter is required" });
   }
 
   try {
@@ -335,17 +309,16 @@ export const getComplaintDetails = async (req: Request, res: Response) => {
         assignments: {
           include: {
             employee: {
-              include: { user: true }
+              include: { user: true },
             },
-            department: true
-          }
-        }
-      }
+            department: true,
+          },
+        },
+      },
     });
 
     if (!complaint) {
-      res.status(404).json({ message: "Complaint not found" });
-      return;
+      return res.status(404).json({ message: "Complaint not found" });
     }
 
     const assignment = complaint.assignments[0] || null;
@@ -359,74 +332,77 @@ export const getComplaintDetails = async (req: Request, res: Response) => {
       customer_email: complaint.customerEmail,
       external_reference_id: complaint.externalReferenceId,
       status: complaint.status,
+      priority: complaint.priority,
+      sentiment: complaint.sentiment,
+      summary: complaint.summary,
+      suggested_reply: complaint.suggestedReply,
+      ai_reasoning: complaint.aiReasoning,
+      ai_confidence: complaint.aiConfidence,
       is_correctly_classified: complaint.isCorrectlyClassified,
       created_at: complaint.createdAt,
       updated_at: complaint.updatedAt,
       deleted_at: complaint.deletedAt,
-      complaint_id: complaint.id,
-      assignee_type: assignment?.assigneeType || null,
-      employee_id: assignment?.employeeId || null,
-      department_id: assignment?.departmentId || null,
-      assigned_at: assignment?.assignedAt || null,
-      user_name: assignment?.employee?.user?.name || assignment?.employee?.name || null,
-      user_email: assignment?.employee?.user?.email || null,
-      department_name: assignment?.department?.name || null
+      assignment: assignment
+        ? {
+            assignee_type: assignment.assigneeType,
+            employee_id: assignment.employeeId,
+            department_id: assignment.departmentId,
+            assigned_at: assignment.assignedAt,
+            user_name: assignment.employee?.user?.name || assignment.employee?.name || null,
+            user_email: assignment.employee?.user?.email || null,
+            department_name: assignment.department?.name || null,
+          }
+        : null,
     };
 
-    res.status(200).json(result);
+    return res.status(200).json(result);
   } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
-}
+};
 
 export const assignComplaintToEmployee = async (req: Request, res: Response) => {
-  const { complaintId, employeeId } = req.body as { complaintId: string, employeeId: string };
+  const { complaintId, employeeId } = req.body as { complaintId: string; employeeId: string };
 
   if (!complaintId || !employeeId) {
-    res.status(400).json({ message: "All fields are required" });
-    return;
+    return res.status(400).json({ message: "complaintId and employeeId are required" });
   }
 
   const tenantId = req.user?.tenantId;
-
   if (!tenantId) {
-    res.status(400).json({ message: "Unauthorized" });
-    return;
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
     await db.assignment.updateMany({
       where: { complaintId },
-      data: { employeeId, assigneeType: "EMPLOYEE" }
+      data: { employeeId, assigneeType: "EMPLOYEE" },
     });
-    res.status(200).json({ message: "Complaint assigned to employee successfully" });
+    return res.status(200).json({ message: "Complaint assigned to employee successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
-}
+};
 
 export const assignComplaintToDepartment = async (req: Request, res: Response) => {
-  const { complaintId, departmentId } = req.body as { complaintId: string, departmentId: string };
+  const { complaintId, departmentId } = req.body as { complaintId: string; departmentId: string };
 
   if (!complaintId || !departmentId) {
-    res.status(400).json({ message: "All fields are required" });
-    return;
+    return res.status(400).json({ message: "complaintId and departmentId are required" });
   }
 
   const tenantId = req.user?.tenantId;
-
   if (!tenantId) {
-    res.status(400).json({ message: "Unauthorized" });
-    return;
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
     await db.assignment.updateMany({
       where: { complaintId },
-      data: { departmentId, assigneeType: "DEPARTMENT" }
+      data: { departmentId, assigneeType: "DEPARTMENT" },
     });
-    res.status(200).json({ message: "Complaint assigned to department successfully" });
+    return res.status(200).json({ message: "Complaint assigned to department successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
-}
+};
