@@ -151,6 +151,8 @@ model Complaint {
   suggestedReply        String?         @map("suggested_reply") @db.Text
   aiReasoning           String?         @map("ai_reasoning") @db.Text
   aiConfidence          Float?          @map("ai_confidence")
+  slaDueAt              DateTime?       @map("sla_due_at") @db.Timestamp(6)
+  isSlaBreached         Boolean         @default(false) @map("is_sla_breached")
   isCorrectlyClassified Boolean         @default(false) @map("is_correctly_classified")
   createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt             DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
@@ -161,6 +163,8 @@ model Complaint {
 
   @@index([tenantId], map: "idx_complaints_tenant_id")
   @@index([status], map: "idx_complaints_status")
+  @@index([slaDueAt], map: "idx_complaints_sla_due_at")
+  @@index([isSlaBreached], map: "idx_complaints_is_sla_breached")
   @@index([deletedAt], map: "idx_complaints_deleted_at")
   @@map("complaints")
 }
