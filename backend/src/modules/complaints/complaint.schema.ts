@@ -15,6 +15,11 @@ export const UpdateComplaintStatusSchema = z.object({
   }),
 });
 
+export const SendResolutionEmailSchema = z.object({
+  complaintId: z.string().uuid("Invalid complaint ID format"),
+  resolutionMessage: z.string().optional(),
+});
+
 export const ComplaintIdBodySchema = z.object({
   complaintId: z.string().uuid("Invalid complaint ID format"),
 });

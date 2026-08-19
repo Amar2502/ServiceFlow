@@ -25,11 +25,13 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "groq-sdk": "^1.5.0",
+    "imagekit": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.6.0",
     "nodemon": "^3.1.11",
     "pg": "^8.23.0",
     "prisma": "^7.9.1",
+    "resend": "^6.20.0",
     "socket.io": "^4.8.3",
     "zod": "^4.4.3"
   },

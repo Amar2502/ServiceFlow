@@ -6,6 +6,8 @@ import { employeeRoutes } from "./modules/employees";
 import { complaintRoutes } from "./modules/complaints";
 import { tenantRoutes } from "./modules/tenants";
 import { departmentRoutes } from "./modules/departments";
+import { ticketMessageRoutes } from "./modules/ticket-messages";
+import { analyticsRoutes } from "./modules/analytics";
 
 export const masterRouter = Router();
 
@@ -16,3 +18,5 @@ masterRouter.use("/employees", employeeRoutes);
 masterRouter.use("/complaints", complaintRoutes);
 masterRouter.use("/tenant", tenantRoutes);
 masterRouter.use("/departments", departmentRoutes);
+masterRouter.use("/ticket-messages", ticketMessageRoutes);
+masterRouter.use("/analytics", analyticsRoutes);

@@ -5,6 +5,7 @@ import { GroqService, DepartmentRoutingContext } from "./groq.service";
 import { WorkloadService } from "./workload.service";
 import { SlaService } from "../sla/sla.service";
 import { ComplaintsSocket } from "./complaints.socket";
+import { EmailService } from "../notifications/email.service";
 
 interface CreateComplaintBody {
   title: string;
@@ -40,25 +41,43 @@ export const createComplaint = async (req: Request, res: Response) => {
         },
       });
 
+      let aiResult: any = null;
+      let isConfidentMatch = true;
+
       if (dbDepartments.length === 0) {
-        throw new Error("No active departments configured for this tenant.");
+        isConfidentMatch = false;
+        aiResult = {
+          priority: "MEDIUM",
+          sentiment: "NEUTRAL",
+          summary: title,
+          suggested_reply: "Thank you for reaching out. An administrator will review your ticket shortly.",
+          reasoning: "No active departments configured. Ticket placed in Admin Manual Assignment queue.",
+          confidence: 0.0,
+          department_id: null,
+        };
+      } else {
+        // Prepare department context list for Groq AI
+        const deptContexts: DepartmentRoutingContext[] = dbDepartments.map((d) => ({
+          id: d.id,
+          code: d.name.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+          name: d.name,
+          description: d.keywords && d.keywords.length > 0 ? d.keywords.join(", ") : d.name,
+        }));
+
+        // Perform Sub-200ms Groq GenAI Multi-Task Extraction
+        aiResult = await GroqService.classifyComplaint(complaintText, deptContexts);
+
+        // Fallback Check: If AI confidence is below threshold (< 0.40), flag for Admin manual assignment
+        if (!aiResult || aiResult.confidence < 0.4) {
+          isConfidentMatch = false;
+          aiResult.reasoning = `Low AI routing confidence (${(aiResult?.confidence * 100 || 0).toFixed(0)}%). Flagged for Admin manual assignment.`;
+        }
       }
 
-      // 2. Prepare department context list for Groq AI
-      const deptContexts: DepartmentRoutingContext[] = dbDepartments.map((d) => ({
-        id: d.id,
-        code: d.name.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
-        name: d.name,
-        description: d.keywords && d.keywords.length > 0 ? d.keywords.join(", ") : d.name,
-      }));
-
-      // 3. Perform Sub-200ms Groq GenAI Multi-Task Extraction
-      const aiResult = await GroqService.classifyComplaint(complaintText, deptContexts);
-
-      // 4. Calculate exact SLA Due Timestamp based on AI-predicted Priority
+      // Calculate exact SLA Due Timestamp based on AI-predicted Priority
       const slaDueAt = SlaService.calculateSlaDueAt(aiResult.priority);
 
-      // 5. Create Complaint with rich AI metadata and SLA due timestamp
+      // Create Complaint with rich AI metadata and SLA due timestamp
       const complaint = await tx.complaint.create({
         data: {
           title,
@@ -75,56 +94,65 @@ export const createComplaint = async (req: Request, res: Response) => {
           aiConfidence: aiResult.confidence,
           slaDueAt,
           isSlaBreached: false,
+          isCorrectlyClassified: isConfidentMatch,
         },
       });
 
       const complaintId = complaint.id;
-      const targetDepartment = dbDepartments.find((d) => d.id === aiResult.department_id) || dbDepartments[0];
-
-      // 6. Dynamic Workload Balancing Algorithm (Real-time active count & counter drift fix)
-      const selectedEmployee = await WorkloadService.selectLeastLoadedEmployee(
-        tx,
-        tenantId,
-        targetDepartment.id
-      );
-
       let assignmentData: any = null;
 
-      if (selectedEmployee) {
-        await tx.assignment.create({
-          data: {
-            tenantId,
-            complaintId,
-            assigneeType: "EMPLOYEE",
-            employeeId: selectedEmployee.id,
-            departmentId: targetDepartment.id,
-          },
-        });
+      if (isConfidentMatch && dbDepartments.length > 0) {
+        const targetDepartment = dbDepartments.find((d) => d.id === aiResult.department_id) || dbDepartments[0];
 
-        assignmentData = {
-          assignee_type: "EMPLOYEE",
-          employee_id: selectedEmployee.id,
-          employee_userId: selectedEmployee.userId,
-          employee_name: selectedEmployee.user?.name || selectedEmployee.name,
-          employee_email: selectedEmployee.user?.email,
-          department_id: targetDepartment.id,
-          department_name: targetDepartment.name,
-        };
-      } else {
-        assignmentData = await WorkloadService.handleUnassignedDepartmentState(
+        // Dynamic Workload Balancing Algorithm: Route to least-loaded staff member in department
+        const selectedEmployee = await WorkloadService.selectLeastLoadedEmployee(
           tx,
           tenantId,
-          targetDepartment.id,
-          complaintId
+          targetDepartment.id
         );
-        if (assignmentData.department_id) {
-          assignmentData.department_name = targetDepartment.name;
+
+        if (selectedEmployee) {
+          await tx.assignment.create({
+            data: {
+              tenantId,
+              complaintId,
+              assigneeType: "EMPLOYEE",
+              employeeId: selectedEmployee.id,
+              departmentId: targetDepartment.id,
+            },
+          });
+
+          assignmentData = {
+            assignee_type: "EMPLOYEE",
+            employee_id: selectedEmployee.id,
+            employee_userId: selectedEmployee.userId,
+            employee_name: selectedEmployee.user?.name || selectedEmployee.name,
+            employee_email: selectedEmployee.user?.email,
+            department_id: targetDepartment.id,
+            department_name: targetDepartment.name,
+          };
+        } else {
+          assignmentData = await WorkloadService.handleUnassignedDepartmentState(
+            tx,
+            tenantId,
+            targetDepartment.id,
+            complaintId
+          );
+          if (assignmentData.department_id) {
+            assignmentData.department_name = targetDepartment.name;
+          }
         }
       }
 
       return {
-        message: "Complaint successfully created, routed via Groq GenAI & SLA target calculated",
+        message: isConfidentMatch
+          ? "Complaint created, routed via Groq GenAI & SLA target calculated"
+          : "Complaint created & flagged for Admin manual assignment",
         complaintId,
+        customerEmail,
+        customerName,
+        title,
+        unassigned: !isConfidentMatch,
         ai_triage: {
           priority: aiResult.priority,
           sentiment: aiResult.sentiment,
@@ -134,27 +162,104 @@ export const createComplaint = async (req: Request, res: Response) => {
           confidence: aiResult.confidence,
         },
         sla: {
-          sla_due_at: slaDueAt,
-          is_sla_breached: false,
+          due_at: slaDueAt,
+          target_hours: aiResult.priority === "URGENT" ? 2 : aiResult.priority === "HIGH" ? 6 : aiResult.priority === "MEDIUM" ? 24 : 48,
         },
         assignment: assignmentData,
       };
     });
 
-    // 7. Emit Real-time Socket.io Events
+    // Real-Time Socket.io Event Emission
     ComplaintsSocket.emitTicketCreated(tenantId, responsePayload);
 
-    if (responsePayload.assignment?.employee_userId) {
-      ComplaintsSocket.emitTicketAssigned(responsePayload.assignment.employee_userId, responsePayload);
+    // Automated Ingestion Email Notification to Customer via Resend
+    if (customerEmail) {
+      EmailService.sendIngestionConfirmationEmail({
+        to: customerEmail,
+        customerName: customerName || "Valued Customer",
+        complaintId: responsePayload.complaintId,
+        title,
+        priority: responsePayload.ai_triage.priority,
+        slaDueAt: responsePayload.sla.due_at,
+      }).catch((err) => console.error("[Ingestion Email Error]:", err));
     }
 
     return res.status(201).json(responsePayload);
-  } catch (err) {
-    console.error("Create complaint failed:", err);
-    return res.status(500).json({
-      message: "Internal server error during complaint creation & routing",
-      error: err instanceof Error ? err.message : "Unknown error",
+  } catch (err: any) {
+    console.error("CreateComplaint error:", err);
+    return res.status(500).json({ message: err.message || "Internal server error creating complaint" });
+  }
+};
+
+export const sendResolutionEmailController = async (req: Request, res: Response) => {
+  const { complaintId, resolutionMessage } = req.body as { complaintId: string; resolutionMessage?: string };
+
+  if (!complaintId) {
+    return res.status(400).json({ message: "complaintId is required" });
+  }
+
+  const tenantId = req.user?.tenantId;
+  if (!tenantId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    const complaint = await db.complaint.findUnique({
+      where: { id: complaintId },
+      include: { assignments: { include: { employee: true } } },
     });
+
+    if (!complaint || complaint.tenantId !== tenantId) {
+      return res.status(404).json({ message: "Complaint not found" });
+    }
+
+    if (!complaint.customerEmail) {
+      return res.status(400).json({ message: "Complaint does not have a valid customer email address" });
+    }
+
+    const finalResolutionText =
+      resolutionMessage?.trim() ||
+      complaint.suggestedReply ||
+      "Your complaint has been resolved by our support team. Thank you for your patience.";
+
+    const emailSent = await EmailService.sendResolutionEmail({
+      to: complaint.customerEmail,
+      customerName: complaint.customerName || "Valued Customer",
+      complaintId: complaint.id,
+      title: complaint.title,
+      resolutionMessage: finalResolutionText,
+    });
+
+    const updated = await db.$transaction(async (tx) => {
+      const c = await tx.complaint.update({
+        where: { id: complaintId },
+        data: {
+          status: "resolved",
+          resolvedAt: new Date(),
+        },
+      });
+
+      await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
+      return c;
+    });
+
+    ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
+      id: updated.id,
+      status: updated.status,
+    });
+
+    return res.status(200).json({
+      message: emailSent
+        ? "Official resolution email sent to customer and ticket status updated to resolved"
+        : "Ticket marked as resolved (email dispatch failed)",
+      complaintId: updated.id,
+      status: updated.status,
+      email_sent: emailSent,
+      resolution_message: finalResolutionText,
+    });
+  } catch (err) {
+    console.error("sendResolutionEmailController failed:", err);
+    return res.status(500).json({ message: "Internal server error during resolution email dispatch" });
   }
 };
 
@@ -220,6 +325,65 @@ export const getAllComplaints = async (req: Request, res: Response) => {
   }
 };
 
+export const getComplaintDetails = async (req: Request, res: Response) => {
+  const { complaintId } = req.params as { complaintId: string };
+  const tenantId = req.user?.tenantId;
+
+  try {
+    const complaint = await db.complaint.findUnique({
+      where: { id: complaintId },
+      include: {
+        assignments: {
+          include: {
+            employee: { include: { user: true } },
+            department: true,
+          },
+        },
+      },
+    });
+
+    if (!complaint || (tenantId && complaint.tenantId !== tenantId)) {
+      return res.status(404).json({ message: "Complaint not found" });
+    }
+
+    const assignment = complaint.assignments[0] || null;
+
+    return res.status(200).json({
+      id: complaint.id,
+      tenant_id: complaint.tenantId,
+      title: complaint.title,
+      description: complaint.description,
+      customer_name: complaint.customerName,
+      customer_email: complaint.customerEmail,
+      external_reference_id: complaint.externalReferenceId,
+      status: complaint.status,
+      priority: complaint.priority,
+      sentiment: complaint.sentiment,
+      summary: complaint.summary,
+      suggested_reply: complaint.suggestedReply,
+      ai_reasoning: complaint.aiReasoning,
+      ai_confidence: complaint.aiConfidence,
+      sla_due_at: complaint.slaDueAt,
+      is_sla_breached: complaint.isSlaBreached,
+      is_correctly_classified: complaint.isCorrectlyClassified,
+      created_at: complaint.createdAt,
+      updated_at: complaint.updatedAt,
+      assignment: assignment
+        ? {
+            assignee_type: assignment.assigneeType,
+            employee_id: assignment.employeeId,
+            employee_name: assignment.employee?.user?.name || assignment.employee?.name || null,
+            department_id: assignment.departmentId,
+            department_name: assignment.department?.name || null,
+          }
+        : null,
+    });
+  } catch (err) {
+    console.error("GetComplaintDetails error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const updateComplaintStatus = async (req: Request, res: Response) => {
   const { complaintId, status } = req.body as { complaintId: string; status: string };
 
@@ -233,11 +397,13 @@ export const updateComplaintStatus = async (req: Request, res: Response) => {
     const updated = await db.$transaction(async (tx) => {
       const complaint = await tx.complaint.update({
         where: { id: complaintId },
-        data: { status: status as ComplaintStatus },
+        data: {
+          status: status as ComplaintStatus,
+          ...(status === "resolved" ? { resolvedAt: new Date() } : {}),
+        },
       });
 
       await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
-
       return complaint;
     });
 
@@ -285,7 +451,7 @@ export const deleteComplaint = async (req: Request, res: Response) => {
       });
     }
 
-    return res.status(200).json({ message: "Complaint soft-deleted and load counter synced" });
+    return res.status(200).json({ message: "Complaint soft-deleted successfully" });
   } catch (err) {
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -313,79 +479,11 @@ export const restoreComplaint = async (req: Request, res: Response) => {
     if (tenantId) {
       ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
         id: complaintId,
-        status: "restored",
+        status: "open",
       });
     }
 
-    return res.status(200).json({ message: "Complaint restored and load counter synced" });
-  } catch (err) {
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-export const getComplaintDetails = async (req: Request, res: Response) => {
-  const { complaintId } = req.params as { complaintId: string };
-
-  if (!complaintId) {
-    return res.status(400).json({ message: "complaintId parameter is required" });
-  }
-
-  try {
-    const complaint = await db.complaint.findUnique({
-      where: { id: complaintId },
-      include: {
-        assignments: {
-          include: {
-            employee: {
-              include: { user: true },
-            },
-            department: true,
-          },
-        },
-      },
-    });
-
-    if (!complaint) {
-      return res.status(404).json({ message: "Complaint not found" });
-    }
-
-    const assignment = complaint.assignments[0] || null;
-
-    const result = {
-      id: complaint.id,
-      tenant_id: complaint.tenantId,
-      title: complaint.title,
-      description: complaint.description,
-      customer_name: complaint.customerName,
-      customer_email: complaint.customerEmail,
-      external_reference_id: complaint.externalReferenceId,
-      status: complaint.status,
-      priority: complaint.priority,
-      sentiment: complaint.sentiment,
-      summary: complaint.summary,
-      suggested_reply: complaint.suggestedReply,
-      ai_reasoning: complaint.aiReasoning,
-      ai_confidence: complaint.aiConfidence,
-      sla_due_at: complaint.slaDueAt,
-      is_sla_breached: complaint.isSlaBreached,
-      is_correctly_classified: complaint.isCorrectlyClassified,
-      created_at: complaint.createdAt,
-      updated_at: complaint.updatedAt,
-      deleted_at: complaint.deletedAt,
-      assignment: assignment
-        ? {
-            assignee_type: assignment.assigneeType,
-            employee_id: assignment.employeeId,
-            department_id: assignment.departmentId,
-            assigned_at: assignment.assignedAt,
-            user_name: assignment.employee?.user?.name || assignment.employee?.name || null,
-            user_email: assignment.employee?.user?.email || null,
-            department_name: assignment.department?.name || null,
-          }
-        : null,
-    };
-
-    return res.status(200).json(result);
+    return res.status(200).json({ message: "Complaint restored successfully" });
   } catch (err) {
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -404,16 +502,41 @@ export const assignComplaintToEmployee = async (req: Request, res: Response) => 
   }
 
   try {
+    const employee = await db.employee.findUnique({
+      where: { id: employeeId },
+      select: { id: true, departmentId: true },
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
     await db.$transaction(async (tx) => {
       const oldAssignments = await tx.assignment.findMany({ where: { complaintId } });
 
-      await tx.assignment.updateMany({
-        where: { complaintId },
-        data: { employeeId, assigneeType: "EMPLOYEE" },
-      });
+      if (oldAssignments.length === 0) {
+        await tx.assignment.create({
+          data: {
+            tenantId,
+            complaintId,
+            assigneeType: "EMPLOYEE",
+            employeeId,
+            departmentId: employee.departmentId,
+          },
+        });
+      } else {
+        await tx.assignment.updateMany({
+          where: { complaintId },
+          data: {
+            employeeId,
+            departmentId: employee.departmentId,
+            assigneeType: "EMPLOYEE",
+          },
+        });
+      }
 
       for (const old of oldAssignments) {
-        if (old.employeeId) {
+        if (old.employeeId && old.employeeId !== employeeId) {
           await WorkloadService.syncEmployeeLoad(tx, old.employeeId);
         }
       }
@@ -427,9 +550,10 @@ export const assignComplaintToEmployee = async (req: Request, res: Response) => 
       employeeId,
     });
 
-    return res.status(200).json({ message: "Complaint assigned to employee successfully" });
+    return res.status(200).json({ message: "Complaint assigned directly to employee successfully" });
   } catch (err) {
-    return res.status(500).json({ message: "Internal server error" });
+    console.error("AssignToEmployee error:", err);
+    return res.status(500).json({ message: "Internal server error assigning complaint to employee" });
   }
 };
 
@@ -449,13 +573,56 @@ export const assignComplaintToDepartment = async (req: Request, res: Response) =
     await db.$transaction(async (tx) => {
       const oldAssignments = await tx.assignment.findMany({ where: { complaintId } });
 
-      await tx.assignment.updateMany({
-        where: { complaintId },
-        data: { departmentId, employeeId: null, assigneeType: "DEPARTMENT" },
-      });
+      // Automatically select the least-loaded employee in the chosen department
+      const leastLoaded = await WorkloadService.selectLeastLoadedEmployee(tx, tenantId, departmentId);
+
+      if (leastLoaded) {
+        if (oldAssignments.length === 0) {
+          await tx.assignment.create({
+            data: {
+              tenantId,
+              complaintId,
+              assigneeType: "EMPLOYEE",
+              employeeId: leastLoaded.id,
+              departmentId,
+            },
+          });
+        } else {
+          await tx.assignment.updateMany({
+            where: { complaintId },
+            data: {
+              departmentId,
+              employeeId: leastLoaded.id,
+              assigneeType: "EMPLOYEE",
+            },
+          });
+        }
+        await WorkloadService.syncEmployeeLoad(tx, leastLoaded.id);
+      } else {
+        if (oldAssignments.length === 0) {
+          await tx.assignment.create({
+            data: {
+              tenantId,
+              complaintId,
+              assigneeType: "DEPARTMENT",
+              departmentId,
+              employeeId: null,
+            },
+          });
+        } else {
+          await tx.assignment.updateMany({
+            where: { complaintId },
+            data: {
+              departmentId,
+              employeeId: null,
+              assigneeType: "DEPARTMENT",
+            },
+          });
+        }
+      }
 
       for (const old of oldAssignments) {
-        if (old.employeeId) {
+        if (old.employeeId && (!leastLoaded || old.employeeId !== leastLoaded.id)) {
           await WorkloadService.syncEmployeeLoad(tx, old.employeeId);
         }
       }
@@ -467,8 +634,9 @@ export const assignComplaintToDepartment = async (req: Request, res: Response) =
       departmentId,
     });
 
-    return res.status(200).json({ message: "Complaint assigned to department successfully" });
+    return res.status(200).json({ message: "Complaint assigned to department & routed to minimum-loaded staff member" });
   } catch (err) {
-    return res.status(500).json({ message: "Internal server error" });
+    console.error("AssignToDepartment error:", err);
+    return res.status(500).json({ message: "Internal server error assigning complaint to department" });
   }
 };

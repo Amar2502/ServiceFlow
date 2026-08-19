@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { deleteApiKey, generateApiKey, getApiKeys } from "./apikey.controller";
-import { adminmiddleware } from "../../middlewares/adminmiddleware";
+import { authenticateJwt, requireRole } from "../../middlewares/role.middleware";
 import { validateRequest } from "../../middlewares/validate.middleware";
 import { DeleteApiKeySchema, GenerateApiKeySchema } from "./apikey.schema";
 
 const router = Router();
 
-router.post("/generate", adminmiddleware, validateRequest({ body: GenerateApiKeySchema }), generateApiKey);
-router.patch("/delete", adminmiddleware, validateRequest({ body: DeleteApiKeySchema }), deleteApiKey);
-router.get("/all", adminmiddleware, getApiKeys);
+// API Key management is restricted strictly to ADMIN users
+router.post("/generate", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: GenerateApiKeySchema }), generateApiKey);
+router.patch("/delete", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: DeleteApiKeySchema }), deleteApiKey);
+router.get("/all", authenticateJwt, requireRole("ADMIN"), getApiKeys);
 
 export default router;

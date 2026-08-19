@@ -153,13 +153,15 @@ model Complaint {
   aiConfidence          Float?          @map("ai_confidence")
   slaDueAt              DateTime?       @map("sla_due_at") @db.Timestamp(6)
   isSlaBreached         Boolean         @default(false) @map("is_sla_breached")
-  isCorrectlyClassified Boolean         @default(false) @map("is_correctly_classified")
+  isCorrectlyClassified Boolean         @default(true) @map("is_correctly_classified")
+  resolvedAt            DateTime?       @map("resolved_at") @db.Timestamp(6)
   createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt             DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
   deletedAt             DateTime?       @map("deleted_at") @db.Timestamp(6)
 
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assignments Assignment[]
+  messages    TicketMessage[]
 
   @@index([tenantId], map: "idx_complaints_tenant_id")
   @@index([status], map: "idx_complaints_status")
@@ -167,6 +169,24 @@ model Complaint {
   @@index([isSlaBreached], map: "idx_complaints_is_sla_breached")
   @@index([deletedAt], map: "idx_complaints_deleted_at")
   @@map("complaints")
+}
+
+model TicketMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  complaintId String   @map("complaint_id") @db.Uuid
+  senderId    String?  @map("sender_id") @db.Uuid
+  senderName  String?  @map("sender_name")
+  senderType  String   @map("sender_type")
+  isInternal  Boolean  @default(false) @map("is_internal")
+  body        String   @db.Text
+  attachments Json?    @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId], map: "idx_messages_complaint_id")
+  @@index([isInternal], map: "idx_messages_is_internal")
+  @@map("ticket_messages")
 }
 
 model Assignment {

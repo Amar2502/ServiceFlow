@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Filter, Download, Search } from "lucide-react";
+import { Plus, Download, Search, Copy, Check } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -27,29 +27,16 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { EmployeesTable } from "./employees-table";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useActiveEmployees } from "@/hooks/use-employees";
+import { useAuth } from "@/components/auth-provider";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Copy, Check } from "lucide-react";
-
-interface Employee {
-  id: string;
-  name: string;
-  title?: string;
-  keywords?: string[];
-  department_id?: string;
-  user_id: string;
-  email?: string;
-  role?: "ADMIN" | "AGENT";
-  created_at: string;
-  deleted_at?: string | null;
-}
 
 export default function EmployeesPage() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [deletedEmployees, setDeletedEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [showDeleted, setShowDeleted] = useState(false);
+  const { user } = useAuth();
+  const { data: employees = [], isLoading, refetch } = useActiveEmployees(user?.tenantId);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [inviteRole, setInviteRole] = useState<"ADMIN" | "AGENT">("AGENT");
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -58,27 +45,6 @@ export default function EmployeesPage() {
     invite_url: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
-
-  const fetchEmployees = async () => {
-    setLoading(true);
-    try {
-      const [activeRes, deletedRes] = await Promise.all([
-        api.get<Employee[]>("/api/employees/active"),
-        api.get<Employee[]>("/api/employees/deleted"),
-      ]);
-      setEmployees(activeRes);
-      setDeletedEmployees(deletedRes);
-    } catch (err) {
-      toast.error("Failed to fetch employees");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
 
   const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,53 +73,53 @@ export default function EmployeesPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const filteredEmployees = (showDeleted ? deletedEmployees : employees).filter(
-    (employee) => {
-      const matchesSearch =
-        searchQuery === "" ||
-        employee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.title?.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
-    }
-  );
+  const filteredEmployees = employees.filter((emp) => {
+    const name = emp.user?.name || emp.name || "";
+    const email = emp.user?.email || "";
+    return (
+      searchQuery === "" ||
+      name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      email.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="flex-1 overflow-auto space-y-5">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Employee Management
+          <h1 className="text-2xl font-bold tracking-tight text-[#3d2a1c]">
+            Employee Workload & Capacity
           </h1>
-          <p className="text-muted-foreground">
-            Manage support staff and track performance metrics.
+          <p className="text-sm text-slate-500">
+            Real-time active load tracking and agent invitation portal.
           </p>
         </div>
         <div>
           <Sheet>
-            <SheetTrigger className="bg-[#eac4a3] hover:bg-[#b08e70] p-2 flex items-center rounded-md">
-              <Plus className="mr-2 h-4 w-4" /> Invite Employee
+            <SheetTrigger asChild>
+              <Button className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-[#faf6f2] text-xs font-medium">
+                <Plus className="mr-1.5 h-4 w-4" /> Invite Employee
+              </Button>
             </SheetTrigger>
             <SheetContent className="bg-[#faf6f2] p-4">
               <SheetHeader>
-                <SheetTitle>Invite New Employee</SheetTitle>
+                <SheetTitle>Invite New Staff</SheetTitle>
                 <SheetDescription>
-                  Create an invite link for a new employee. They will complete their
-                  registration using the invite token.
+                  Generate an invitation link for a new support agent or administrator.
                 </SheetDescription>
               </SheetHeader>
 
               {generatedInvite ? (
                 <div className="mt-6 space-y-4">
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                    <p className="text-sm font-medium text-yellow-800 mb-2">
-                      ⚠️ Share this invite link with the employee. It expires in 24 hours.
+                  <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
+                    <p className="text-xs font-medium text-amber-900 mb-2">
+                      ⚠️ Share this invite link with the staff member. It expires in 24 hours.
                     </p>
                     <div className="flex items-center space-x-2">
                       <Input
                         value={generatedInvite.invite_url}
                         readOnly
-                        className="bg-white font-mono text-sm"
+                        className="bg-white font-mono text-xs"
                       />
                       <Button
                         variant="outline"
@@ -161,7 +127,7 @@ export default function EmployeesPage() {
                         onClick={() => copyToClipboard(generatedInvite.invite_url)}
                       >
                         {copied ? (
-                          <Check className="h-4 w-4 text-green-500" />
+                          <Check className="h-4 w-4 text-emerald-600" />
                         ) : (
                           <Copy className="h-4 w-4" />
                         )}
@@ -169,7 +135,7 @@ export default function EmployeesPage() {
                     </div>
                   </div>
                   <Button
-                    className="w-full bg-[#c9a382] hover:bg-[#b08e70]"
+                    className="w-full bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs"
                     onClick={() => {
                       setGeneratedInvite(null);
                       setInviteRole("AGENT");
@@ -181,16 +147,14 @@ export default function EmployeesPage() {
               ) : (
                 <form onSubmit={handleCreateInvite} className="space-y-4 mt-6">
                   <div>
-                    <Label htmlFor="role">
+                    <Label htmlFor="role" className="text-xs">
                       Role <span className="text-red-500">*</span>
                     </Label>
                     <Select
                       value={inviteRole}
-                      onValueChange={(value: "ADMIN" | "AGENT") =>
-                        setInviteRole(value)
-                      }
+                      onValueChange={(value: "ADMIN" | "AGENT") => setInviteRole(value)}
                     >
-                      <SelectTrigger className="w-full bg-white mt-2">
+                      <SelectTrigger className="w-full bg-white mt-2 text-xs">
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
@@ -198,14 +162,11 @@ export default function EmployeesPage() {
                         <SelectItem value="AGENT">Agent</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      The invite will be valid for 24 hours
-                    </p>
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full bg-[#c9a382] hover:bg-[#b08e70]"
+                    className="w-full bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs font-medium"
                     disabled={inviteLoading}
                   >
                     {inviteLoading ? "Generating..." : "Generate Invite Link"}
@@ -217,25 +178,12 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      <Card className="bg-white border-[#EED9C4]">
+      <Card className="bg-white border-[#EED9C4] shadow-sm">
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Support Team</CardTitle>
-              <CardDescription>
-                Manage employees and track their complaint resolution performance
-              </CardDescription>
-            </div>
-            <Select value={showDeleted ? "deleted" : "active"} onValueChange={(v) => setShowDeleted(v === "deleted")}>
-              <SelectTrigger className="w-[180px] bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active ({employees.length})</SelectItem>
-                <SelectItem value="deleted">Deleted ({deletedEmployees.length})</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <CardTitle className="text-lg font-semibold text-[#5a3e2b]">Active Support Agents</CardTitle>
+          <CardDescription>
+            Live load counters recalculated in real-time ($COUNT(open/in_progress)$)
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 mb-4">
@@ -243,27 +191,22 @@ export default function EmployeesPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search employees..."
+                placeholder="Search staff members..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 bg-white w-[300px]"
+                className="pl-8 bg-white w-[280px] text-xs"
               />
             </div>
 
-            <div className="flex flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0">
-              <Button variant="outline" className="bg-white">
-                <Download className="mr-2 h-4 w-4" /> Export
-              </Button>
-            </div>
+            <Button variant="outline" className="bg-white text-xs">
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Export List
+            </Button>
           </div>
 
-          {loading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+          {isLoading ? (
+            <div className="text-center py-10 text-xs text-slate-400">Loading active staff workload...</div>
           ) : (
-            <EmployeesTable
-              employees={filteredEmployees}
-              onRefresh={fetchEmployees}
-            />
+            <EmployeesTable employees={filteredEmployees} onRefresh={refetch} />
           )}
         </CardContent>
       </Card>

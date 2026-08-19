@@ -14,6 +14,7 @@ import {
   BookOpen,
   Menu,
   Terminal,
+  BarChart2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
@@ -36,9 +37,14 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   {
-    title: "Dashboard",
+    title: "Dashboard Overview",
     href: "/dashboard",
     icon: <PieChart className="h-5 w-5 shrink-0" />,
+  },
+  {
+    title: "Operations & AI Analytics",
+    href: "/dashboard/analytics",
+    icon: <BarChart2 className="h-5 w-5 shrink-0" />,
   },
   {
     title: "My Assignments",
@@ -46,38 +52,38 @@ const navItems: NavItem[] = [
     icon: <ClipboardList className="h-5 w-5 shrink-0" />,
   },
   {
-    title: "Complaints",
+    title: "Complaints Queue",
     href: "/dashboard/complaints",
     icon: <MessageSquare className="h-5 w-5 shrink-0" />,
-    adminOnly: true,
   },
   {
-    title: "Employees",
+    title: "Staff Workload",
     href: "/dashboard/employees",
     icon: <Users className="h-5 w-5 shrink-0" />,
     adminOnly: true,
   },
   {
-    title: "Departments",
+    title: "Department Routing",
     href: "/dashboard/departments",
     icon: <Building2 className="h-5 w-5 shrink-0" />,
     adminOnly: true,
   },
   {
-    title: "API Keys",
+    title: "API Credentials",
     href: "/dashboard/apikeys",
     icon: <Key className="h-5 w-5 shrink-0" />,
     adminOnly: true,
   },
   {
-    title: "API Docs",
+    title: "API Reference",
     href: "/dashboard/api-docs",
     icon: <BookOpen className="h-5 w-5 shrink-0" />,
   },
   {
-    title: "Settings",
+    title: "Tenant Settings",
     href: "/dashboard/settings",
     icon: <Settings className="h-5 w-5 shrink-0" />,
+    adminOnly: true,
   },
 ];
 
@@ -109,9 +115,9 @@ function NavLinks({
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center rounded-lg px-3 py-2.5 w-full text-left transition-colors",
+                "flex items-center rounded-lg px-3 py-2.5 w-full text-left transition-colors text-xs font-medium",
                 active
-                  ? "bg-[#c9a382]/40 text-[#3d2a1c] font-medium"
+                  ? "bg-[#c9a382]/40 text-[#3d2a1c] font-semibold"
                   : "hover:bg-[#dfc7ae]/80 text-[#4a3728]"
               )}
             >
@@ -141,8 +147,8 @@ export default function DashboardLayout({
 
   if (!ready || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#faf6f2] text-muted-foreground">
-        Loading…
+      <div className="min-h-screen flex items-center justify-center bg-[#faf6f2] text-xs text-slate-500">
+        Authenticating session...
       </div>
     );
   }
@@ -151,16 +157,16 @@ export default function DashboardLayout({
     <div className="flex min-h-screen flex-col md:flex-row bg-[#faf6f2]">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex bg-[#EED9C4] text-[#3d2a1c] w-64 shrink-0 flex-col border-r border-[#dfc7ae] min-h-screen">
-        <div className="flex items-center gap-2 p-4 border-b border-[#dfc7ae]">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#3d2a1c] text-[#EED9C4]">
+        <div className="flex items-center gap-2.5 p-4 border-b border-[#dfc7ae]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#3d2a1c] text-[#EED9C4] shadow-sm">
             <Terminal className="h-5 w-5" />
           </div>
           <div>
-            <Link href="/dashboard" className="font-semibold text-lg leading-tight">
+            <Link href="/dashboard" className="font-bold text-base leading-tight block">
               ServiceFlow
             </Link>
-            <p className="text-[10px] uppercase tracking-wider text-[#6b5344]">
-              Routing API
+            <p className="text-[10px] uppercase font-mono tracking-wider text-[#6b5344]">
+              Enterprise SaaS
             </p>
           </div>
         </div>
@@ -171,14 +177,19 @@ export default function DashboardLayout({
 
         <div className="border-t border-[#dfc7ae] p-4 space-y-3">
           <div className="rounded-lg bg-[#dfc7ae]/50 px-3 py-2 text-xs">
-            <p className="font-medium truncate">{user.role}</p>
-            <p className="text-[#6b5344] truncate text-[11px] font-mono">
-              {user.userId.slice(0, 8)}…
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-900">{user.role}</span>
+              <span className="text-[10px] bg-[#3d2a1c] text-[#EED9C4] px-1.5 py-0.5 rounded font-mono">
+                {user.role === "ADMIN" ? "Admin" : "Agent"}
+              </span>
+            </div>
+            <p className="text-[#6b5344] truncate text-[11px] font-mono mt-0.5">
+              ID: {user.userId.slice(0, 8)}…
             </p>
           </div>
           <Button
             variant="ghost"
-            className="w-full justify-start text-[#554635] hover:bg-red-600/90 hover:text-white"
+            className="w-full justify-start text-[#554635] hover:bg-red-600/90 hover:text-white text-xs font-medium"
             onClick={() => logout()}
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -193,7 +204,7 @@ export default function DashboardLayout({
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3d2a1c] text-[#EED9C4] shrink-0">
             <Terminal className="h-4 w-4" />
           </div>
-          <span className="font-semibold truncate">ServiceFlow</span>
+          <span className="font-bold truncate text-sm">ServiceFlow</span>
         </div>
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
@@ -203,14 +214,14 @@ export default function DashboardLayout({
           </SheetTrigger>
           <SheetContent side="left" className="bg-[#EED9C4] border-[#dfc7ae] w-72">
             <SheetHeader>
-              <SheetTitle className="text-left">Menu</SheetTitle>
+              <SheetTitle className="text-left text-sm">Navigation Menu</SheetTitle>
             </SheetHeader>
-            <nav className="mt-6">
+            <nav className="mt-4">
               <NavLinks onNavigate={() => setMobileOpen(false)} />
             </nav>
             <Button
               variant="ghost"
-              className="mt-8 w-full justify-start hover:bg-red-600/90 hover:text-white"
+              className="mt-8 w-full justify-start hover:bg-red-600/90 hover:text-white text-xs"
               onClick={() => {
                 setMobileOpen(false);
                 logout();

@@ -1,4 +1,3 @@
-// File: app/dashboard/employees-table.tsx
 "use client";
 
 import {
@@ -48,37 +47,22 @@ import {
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-
-// Define type for employee data matching backend schema
-type Employee = {
-  id: string;
-  name: string;
-  title?: string;
-  keywords?: string[];
-  department_id?: string;
-  user_id: string;
-  email?: string;
-  role?: "ADMIN" | "AGENT";
-  created_at: string;
-  deleted_at?: string | null;
-};
+import { EmployeeItem } from "@/hooks/use-employees";
 
 type EmployeesTableProps = {
-  employees: Employee[];
+  employees: EmployeeItem[];
   onRefresh?: () => void;
 };
 
 export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
   const [showEditName, setShowEditName] = useState(false);
-  const [showEditKeywords, setShowEditKeywords] = useState(false);
   const [showMapDepartment, setShowMapDepartment] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeItem | null>(null);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [formData, setFormData] = useState({
     name: "",
-    keywords: "",
     departmentId: "",
   });
   const [loading, setLoading] = useState(false);
@@ -92,34 +76,25 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
     }
   };
 
-  const handleEditName = (employee: Employee) => {
+  const handleEditName = (employee: EmployeeItem) => {
     setSelectedEmployee(employee);
-    setFormData({ ...formData, name: employee.name || "" });
+    setFormData({ ...formData, name: employee.user?.name || employee.name || "" });
     setShowEditName(true);
   };
 
-  const handleEditKeywords = (employee: Employee) => {
-    setSelectedEmployee(employee);
-    setFormData({
-      ...formData,
-      keywords: employee.keywords?.join(", ") || "",
-    });
-    setShowEditKeywords(true);
-  };
-
-  const handleMapDepartment = (employee: Employee) => {
+  const handleMapDepartment = (employee: EmployeeItem) => {
     setSelectedEmployee(employee);
     setFormData({ ...formData, departmentId: employee.department_id || "" });
     fetchDepartments();
     setShowMapDepartment(true);
   };
 
-  const handleDelete = (employee: Employee) => {
+  const handleDelete = (employee: EmployeeItem) => {
     setSelectedEmployee(employee);
     setShowDelete(true);
   };
 
-  const handleRestore = (employee: Employee) => {
+  const handleRestore = (employee: EmployeeItem) => {
     setSelectedEmployee(employee);
     setShowRestore(true);
   };
@@ -141,25 +116,6 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
       onRefresh?.();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to update name");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const submitEditKeywords = async () => {
-    if (!selectedEmployee) return;
-    setLoading(true);
-    try {
-      await api.post("/api/employees/create-vectors", {
-        employeeId: selectedEmployee.id,
-        keywords: formData.keywords,
-      });
-      toast.success("Keywords updated successfully");
-      setShowEditKeywords(false);
-      setSelectedEmployee(null);
-      onRefresh?.();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to update routing profile");
     } finally {
       setLoading(false);
     }
@@ -219,7 +175,6 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
     }
   };
 
-  // Function to get initials from name
   const getInitials = (name: string) => {
     if (!name) return "?";
     return name
@@ -230,139 +185,86 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
       .substring(0, 2);
   };
 
-  const getStatusBadge = (deletedAt: string | null | undefined) => {
-    if (deletedAt) {
-      return (
-        <Badge className="bg-red-100 text-red-800 hover:bg-red-200 flex items-center gap-1">
-          <AlertCircle className="mr-1 h-3 w-3" /> Deleted
-        </Badge>
-      );
-    }
-    return (
-      <Badge className="bg-green-100 text-green-800 hover:bg-green-200 flex items-center gap-1">
-        <CheckCircle className="mr-1 h-3 w-3" /> Active
-      </Badge>
-    );
-  };
-
   return (
     <>
-      <div className="rounded-md border">
+      <div className="rounded-md border border-[#EED9C4] overflow-hidden">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-[#faf6f2]">
             <TableRow>
               <TableHead className="w-[100px]">ID</TableHead>
-              <TableHead className="w-[250px]">
-                <Button variant="ghost" className="p-0 hover:bg-transparent">
-                  <span>Employee</span>
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead>Title</TableHead>
+              <TableHead className="w-[240px]">Employee</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Keywords</TableHead>
-              <TableHead></TableHead>
+              <TableHead>Live Active Load</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {employees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
-                  No employees found.
+                <TableCell colSpan={5} className="h-24 text-center text-xs text-slate-400">
+                  No active employees found.
                 </TableCell>
               </TableRow>
             ) : (
-              employees.map((employee) => (
-                <TableRow key={employee.id}>
-                  <TableCell className="font-medium truncate w-[7ch]">
-                    {String(employee.id).substring(0, 7)}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center space-x-3">
-                      <Avatar>
-                        <AvatarFallback className="bg-[#c9a382] text-white">
-                          {getInitials(employee.name || "")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{employee.name || "N/A"}</div>
-                        {employee.email && (
-                          <div className="text-sm text-gray-500">{employee.email}</div>
-                        )}
+              employees.map((employee) => {
+                const name = employee.user?.name || employee.name || "N/A";
+                const email = employee.user?.email || "No email";
+                return (
+                  <TableRow key={employee.id} className="hover:bg-slate-50 transition-colors">
+                    <TableCell className="font-mono text-xs text-slate-500 font-semibold">
+                      #{employee.id.substring(0, 6)}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-[#c9a382] text-white text-xs">
+                            {getInitials(name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-semibold text-slate-900 text-sm">{name}</div>
+                          <div className="text-xs text-slate-500">{email}</div>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{employee.title || "-"}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{employee.role || "AGENT"}</Badge>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(employee.deleted_at)}</TableCell>
-                  <TableCell>
-                    {employee.keywords && employee.keywords.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {employee.keywords.slice(0, 2).map((keyword, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">
-                            {keyword}
-                          </Badge>
-                        ))}
-                        {employee.keywords.length > 2 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{employee.keywords.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {!employee.deleted_at && (
-                          <>
-                            <DropdownMenuItem onClick={() => handleEditName(employee)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Name
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditKeywords(employee)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Keywords
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleMapDepartment(employee)}>
-                              <Building2 className="h-4 w-4 mr-2" />
-                              Map to Department
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => handleDelete(employee)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        {employee.deleted_at && (
-                          <DropdownMenuItem
-                            className="text-green-600"
-                            onClick={() => handleRestore(employee)}
-                          >
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Restore
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs bg-slate-50">
+                        {employee.user?.role || "AGENT"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-blue-100 text-blue-900 border-blue-200 font-bold">
+                        {employee.load || 0} active ticket(s)
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditName(employee)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Name
                           </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                          <DropdownMenuItem onClick={() => handleMapDepartment(employee)}>
+                            <Building2 className="h-4 w-4 mr-2" />
+                            Map to Department
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(employee)}>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Employee
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -373,70 +275,25 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
         <DialogContent className="bg-[#faf6f2]">
           <DialogHeader>
             <DialogTitle className="text-[#5a3e2b]">Edit Employee Name</DialogTitle>
-            <DialogDescription>Update the employee's name</DialogDescription>
+            <DialogDescription>Update staff member name</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div>
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name" className="text-xs">Name</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="bg-white mt-2"
+                className="bg-white mt-2 text-xs"
                 placeholder="Enter employee name"
               />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowEditName(false)}>
+              <Button variant="outline" onClick={() => setShowEditName(false)} className="text-xs">
                 Cancel
               </Button>
-              <Button
-                className="bg-[#c9a382] hover:bg-[#b08e70]"
-                onClick={submitEditName}
-                disabled={loading}
-              >
-                {loading ? "Updating..." : "Update"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Keywords Dialog */}
-      <Dialog open={showEditKeywords} onOpenChange={setShowEditKeywords}>
-        <DialogContent className="bg-[#faf6f2]">
-          <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Edit Keywords</DialogTitle>
-            <DialogDescription>
-              Update keywords for intelligent complaint routing (comma-separated)
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-4">
-            <div>
-              <Label htmlFor="keywords">Keywords</Label>
-              <Input
-                id="keywords"
-                value={formData.keywords}
-                onChange={(e) =>
-                  setFormData({ ...formData, keywords: e.target.value })
-                }
-                className="bg-white mt-2"
-                placeholder="billing, payments, refunds"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Separate keywords with commas
-              </p>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowEditKeywords(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="bg-[#c9a382] hover:bg-[#b08e70]"
-                onClick={submitEditKeywords}
-                disabled={loading}
-              >
-                {loading ? "Updating..." : "Update"}
+              <Button className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs" onClick={submitEditName} disabled={loading}>
+                {loading ? "Updating..." : "Update Name"}
               </Button>
             </div>
           </div>
@@ -448,20 +305,16 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
         <DialogContent className="bg-[#faf6f2]">
           <DialogHeader>
             <DialogTitle className="text-[#5a3e2b]">Map to Department</DialogTitle>
-            <DialogDescription>
-              Assign this employee to a department
-            </DialogDescription>
+            <DialogDescription>Assign this employee to a department queue</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div>
-              <Label htmlFor="department">Department</Label>
+              <Label htmlFor="department" className="text-xs">Department</Label>
               <Select
                 value={formData.departmentId}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, departmentId: value })
-                }
+                onValueChange={(value) => setFormData({ ...formData, departmentId: value })}
               >
-                <SelectTrigger className="bg-white mt-2">
+                <SelectTrigger className="bg-white mt-2 text-xs">
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
@@ -474,15 +327,11 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
               </Select>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowMapDepartment(false)}>
+              <Button variant="outline" onClick={() => setShowMapDepartment(false)} className="text-xs">
                 Cancel
               </Button>
-              <Button
-                className="bg-[#c9a382] hover:bg-[#b08e70]"
-                onClick={submitMapDepartment}
-                disabled={loading}
-              >
-                {loading ? "Mapping..." : "Map"}
+              <Button className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs" onClick={submitMapDepartment} disabled={loading}>
+                {loading ? "Mapping..." : "Map Department"}
               </Button>
             </div>
           </div>
@@ -494,45 +343,14 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
         <DialogContent className="bg-[#faf6f2]">
           <DialogHeader>
             <DialogTitle className="text-[#5a3e2b]">Delete Employee</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this employee? This action can be undone by
-              restoring later.
-            </DialogDescription>
+            <DialogDescription>Soft-delete this staff member?</DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 justify-end mt-4">
-            <Button variant="outline" onClick={() => setShowDelete(false)}>
+            <Button variant="outline" onClick={() => setShowDelete(false)} className="text-xs">
               Cancel
             </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700"
-              onClick={submitDelete}
-              disabled={loading}
-            >
-              {loading ? "Deleting..." : "Delete"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Restore Dialog */}
-      <Dialog open={showRestore} onOpenChange={setShowRestore}>
-        <DialogContent className="bg-[#faf6f2]">
-          <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Restore Employee</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to restore this employee?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-2 justify-end mt-4">
-            <Button variant="outline" onClick={() => setShowRestore(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-[#c9a382] hover:bg-[#b08e70]"
-              onClick={submitRestore}
-              disabled={loading}
-            >
-              {loading ? "Restoring..." : "Restore"}
+            <Button className="bg-red-600 hover:bg-red-700 text-xs" onClick={submitDelete} disabled={loading}>
+              {loading ? "Deleting..." : "Confirm Delete"}
             </Button>
           </div>
         </DialogContent>

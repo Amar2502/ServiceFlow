@@ -2,6 +2,7 @@ import { db } from "../../config/db";
 import { Priority, Prisma } from "../../generated/prisma";
 import { WorkloadService } from "../complaints/workload.service";
 import { SlaSocket } from "./sla.socket";
+import { EmailService } from "../notifications/email.service";
 
 export interface SlaEscalationResult {
   breachedCount: number;
@@ -94,6 +95,17 @@ export class SlaService {
         });
 
         escalatedList.push(result);
+
+        // Trigger Automated SLA Breach Alert Email
+        if (complaint.customerEmail) {
+          EmailService.sendSlaBreachAlertEmail({
+            customerEmail: complaint.customerEmail,
+            complaintId: complaint.id,
+            title: complaint.title,
+            priority: "URGENT",
+            slaDueAt: complaint.slaDueAt || now,
+          }).catch((e) => console.error("Failed sending SLA breach alert email:", e));
+        }
       }
 
       // Group and emit real-time SLA breach events per tenant

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 export type RecentComplaint = {
   id: string;
@@ -54,16 +55,19 @@ export function RecentComplaints({ items }: { items: RecentComplaint[] }) {
       <CardContent>
         <div className="space-y-4">
           {items.map((c) => (
-            <div
+            <Link
               key={c.id}
-              className="flex items-start gap-4 p-3 rounded-lg hover:bg-[#f5eadf] transition-colors"
+              href={`/dashboard/complaints/${c.id}`}
+              className="flex items-start gap-4 p-3 rounded-lg hover:bg-[#f5eadf] transition-colors group block"
             >
               <Avatar className="h-10 w-10 bg-[#c9a382] text-white">
                 <AvatarFallback>{initials(c.customer_name || "?")}</AvatarFallback>
               </Avatar>
               <div className="space-y-1 flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium truncate">{c.customer_name}</p>
+                  <p className="text-sm font-medium truncate group-hover:text-indigo-600 transition-colors">
+                    {c.customer_name}
+                  </p>
                   <span className="text-xs text-muted-foreground shrink-0">
                     {formatRelative(c.created_at)}
                   </span>
@@ -76,7 +80,7 @@ export function RecentComplaints({ items }: { items: RecentComplaint[] }) {
                   {c.status.replace("_", " ")}
                 </Badge>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </CardContent>

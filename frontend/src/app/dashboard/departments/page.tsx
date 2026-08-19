@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Search, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Trash2, RotateCcw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -27,66 +27,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useDepartments, useCreateDepartment } from "@/hooks/use-departments";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
-interface Department {
-  id: string;
-  name: string;
-  keywords: string[];
-  created_at: string;
-  deleted_at?: string | null;
-}
-
 export default function DepartmentsPage() {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [deletedDepartments, setDeletedDepartments] = useState<Department[]>([]);
-  const [showDeleted, setShowDeleted] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const { data: departments = [], isLoading, refetch } = useDepartments();
+  const createDepartmentMutation = useCreateDepartment();
+
   const [formData, setFormData] = useState({
     name: "",
     keywords: "",
   });
 
-  const fetchDepartments = async () => {
-    try {
-      const data = await api.get<Department[]>("/api/departments/all");
-      setDepartments(data);
-    } catch {
-      toast.error("Failed to fetch departments");
-    }
-  };
-
-  const fetchDeletedDepartments = async () => {
-    try {
-      const data = await api.get<Department[]>("/api/departments/deleted");
-      setDeletedDepartments(data);
-    } catch {
-      toast.error("Failed to fetch deleted departments");
-    }
-  };
-
   const handleCreate = async (e: React.FormEvent) => {
-    console.log("formData", formData);
     e.preventDefault();
-    setLoading(true);
     try {
-      await api.post("/api/departments/create", formData);
-      toast.success("Department created successfully");
+      await createDepartmentMutation.mutateAsync(formData);
       setFormData({ name: "", keywords: "" });
-      fetchDepartments();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to create department");
-    } finally {
-      setLoading(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create department");
     }
   };
 
@@ -94,97 +55,74 @@ export default function DepartmentsPage() {
     try {
       await api.patch("/api/departments/delete", { departmentId: id });
       toast.success("Department deleted successfully");
-      fetchDepartments();
-      fetchDeletedDepartments();
+      refetch();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to delete department");
     }
   };
 
-  const handleRestore = async (id: string) => {
-    try {
-      await api.patch("/api/departments/restore", { departmentId: id });
-      toast.success("Department restored successfully");
-      fetchDepartments();
-      fetchDeletedDepartments();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to restore department");
-    }
-  };
-
-  useEffect(() => {
-    fetchDepartments();
-    fetchDeletedDepartments();
-  }, []);
-
-  const displayDepartments = showDeleted ? deletedDepartments : departments;
-
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="flex-1 overflow-auto space-y-5">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Department Management
+          <h1 className="text-2xl font-bold tracking-tight text-[#3d2a1c]">
+            Department Routing Directory
           </h1>
-          <p className="text-muted-foreground">
-            Manage departments and their keywords for intelligent complaint routing.
+          <p className="text-sm text-slate-500">
+            Define tenant departments and keywords evaluated by Groq AI zero-shot routing.
           </p>
         </div>
         <div>
           <Sheet>
-            <SheetTrigger className="bg-[#eac4a3] hover:bg-[#b08e70] p-2 flex items-center rounded-md">
-              <Plus className="mr-2 h-4 w-4" /> New Department
+            <SheetTrigger asChild>
+              <Button className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-[#faf6f2] text-xs font-medium">
+                <Plus className="mr-1.5 h-4 w-4" /> New Department
+              </Button>
             </SheetTrigger>
             <SheetContent className="bg-[#faf6f2] p-4">
               <SheetHeader>
-                <SheetTitle>Create New Department</SheetTitle>
+                <SheetTitle>Create Department</SheetTitle>
                 <SheetDescription>
-                  Enter department details. Keywords are used for intelligent complaint routing.
+                  Keywords are passed to Groq GenAI for zero-shot natural language matching.
                 </SheetDescription>
               </SheetHeader>
 
               <form onSubmit={handleCreate} className="space-y-4 mt-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2">
+                  <label className="block text-xs font-semibold mb-1 text-slate-700">
                     Department Name <span className="text-red-500">*</span>
                   </label>
                   <Input
                     type="text"
-                    placeholder="e.g., Billing, Technical Support"
+                    placeholder="e.g., Billing & Payments, Technical Support"
                     value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
-                    className="bg-white"
+                    className="bg-white text-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Keywords <span className="text-red-500">*</span>
+                  <label className="block text-xs font-semibold mb-1 text-slate-700">
+                    Routing Keywords / Description <span className="text-red-500">*</span>
                   </label>
                   <Input
                     type="text"
-                    placeholder="billing, payments, refunds, invoices"
+                    placeholder="billing, payments, refunds, duplicate charge"
                     value={formData.keywords}
-                    onChange={(e) =>
-                      setFormData({ ...formData, keywords: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
                     required
-                    className="bg-white"
+                    className="bg-white text-xs"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Separate keywords with commas
-                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1">Separate keywords with commas</p>
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full bg-[#c9a382] hover:bg-[#b08e70]"
-                  disabled={loading}
+                  className="w-full bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs font-medium"
+                  disabled={createDepartmentMutation.isPending}
                 >
-                  {loading ? "Creating..." : "Create Department"}
+                  {createDepartmentMutation.isPending ? "Creating..." : "Create Department"}
                 </Button>
               </form>
             </SheetContent>
@@ -192,97 +130,75 @@ export default function DepartmentsPage() {
         </div>
       </div>
 
-      <Card className="bg-white border-[#EED9C4]">
+      <Card className="bg-white border-[#EED9C4] shadow-sm">
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Departments</CardTitle>
-              <CardDescription>
-                Manage departments and their routing keywords
-              </CardDescription>
-            </div>
-            <Select value={showDeleted ? "deleted" : "active"} onValueChange={(v) => setShowDeleted(v === "deleted")}>
-              <SelectTrigger className="w-[180px] bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="deleted">Deleted</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <CardTitle className="text-lg font-semibold text-[#5a3e2b]">Active Tenant Departments</CardTitle>
+          <CardDescription>
+            Groq AI evaluates ticket descriptions against these department keywords in real time.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Keywords</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayDepartments.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-10 text-xs text-slate-400">Loading department routing directory...</div>
+          ) : (
+            <div className="rounded-md border border-[#EED9C4] overflow-hidden">
+              <Table>
+                <TableHeader className="bg-[#faf6f2]">
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
-                      No departments found.
-                    </TableCell>
+                    <TableHead className="text-left">Name</TableHead>
+                    <TableHead className="text-left">Routing Keywords</TableHead>
+                    <TableHead className="text-left">Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  displayDepartments.map((dept) => (
-                    <TableRow key={dept.id}>
-                      <TableCell className="font-medium">{dept.name}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {dept.keywords?.slice(0, 3).map((kw, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs">
-                              {kw}
-                            </Badge>
-                          ))}
-                          {dept.keywords && dept.keywords.length > 3 && (
-                            <Badge variant="secondary" className="text-xs">
-                              +{dept.keywords.length - 3}
-                            </Badge>
-                          )}
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {departments.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center text-xs text-slate-400">
+                        No departments found. Create your first department above.
                       </TableCell>
-                      <TableCell>
-                        {new Date(dept.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {showDeleted ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRestore(dept.id)}
-                            className="text-green-600 hover:text-green-700"
-                          >
-                            <RotateCcw className="h-4 w-4 mr-1" />
-                            Restore
-                          </Button>
-                        ) : (
+                    </TableRow>
+                  ) : (
+                    departments.map((dept) => (
+                      <TableRow key={dept.id} className="hover:bg-slate-50 transition-colors">
+                        <TableCell className="font-semibold text-slate-900">{dept.name}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {dept.keywords?.slice(0, 4).map((kw, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-[11px] bg-slate-100 text-slate-700">
+                                {kw}
+                              </Badge>
+                            ))}
+                            {dept.keywords && dept.keywords.length > 4 && (
+                              <Badge variant="secondary" className="text-[11px] bg-slate-200 text-slate-800">
+                                +{dept.keywords.length - 4}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-500">
+                          {new Date(dept.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(dept.id)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 text-xs"
                           >
                             <Trash2 className="h-4 w-4 mr-1" />
                             Delete
                           </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
-
