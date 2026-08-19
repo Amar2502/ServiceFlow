@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { db } from "../../config/db";
 import { AnalyticsService } from "./analytics.service";
 
 export const getAnalyticsOverview = async (req: Request, res: Response) => {
@@ -19,8 +20,37 @@ export const getAnalyticsOverview = async (req: Request, res: Response) => {
 
 export const submitAiFeedbackController = async (req: Request, res: Response) => {
   const { complaintId, isCorrectlyClassified, correctedDepartmentId } = req.body;
+  const tenantId = req.user?.tenantId;
+
+  if (!tenantId) {
+    return res.status(401).json({ message: "Unauthorized context" });
+  }
+
+  if (!complaintId) {
+    return res.status(400).json({ message: "complaintId is required" });
+  }
 
   try {
+    const complaint = await db.complaint.findUnique({
+      where: { id: complaintId },
+      select: { tenantId: true },
+    });
+
+    if (!complaint || complaint.tenantId !== tenantId) {
+      return res.status(403).json({ message: "Forbidden: Access to specified complaint is denied" });
+    }
+
+    if (correctedDepartmentId) {
+      const targetDept = await db.department.findUnique({
+        where: { id: correctedDepartmentId },
+        select: { tenantId: true },
+      });
+
+      if (!targetDept || targetDept.tenantId !== tenantId) {
+        return res.status(400).json({ message: "Invalid department for current tenant context" });
+      }
+    }
+
     const updated = await AnalyticsService.submitFeedback(
       complaintId,
       Boolean(isCorrectlyClassified),

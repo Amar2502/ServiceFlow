@@ -54,7 +54,9 @@ export class SlaService {
         },
         include: {
           tenant: true,
-          assignments: true,
+          assignments: {
+            orderBy: { assignedAt: "desc" },
+          },
         },
       });
 
@@ -81,7 +83,7 @@ export class SlaService {
           const escalationDetails = await WorkloadService.handleUnassignedDepartmentState(
             tx,
             complaint.tenantId,
-            complaint.assignments[0]?.departmentId || "00000000-0000-0000-0000-000000000000",
+            complaint.assignments[0]?.departmentId || null,
             complaint.id
           );
 

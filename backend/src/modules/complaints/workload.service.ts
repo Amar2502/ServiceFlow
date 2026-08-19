@@ -120,9 +120,27 @@ export class WorkloadService {
   static async handleUnassignedDepartmentState(
     tx: Prisma.TransactionClient,
     tenantId: string,
-    departmentId: string,
+    departmentId: string | null | undefined,
     complaintId: string
   ) {
+    // Validate departmentId exists in DB for this tenant to prevent foreign key errors (P2003)
+    let validDepartmentId: string | null = null;
+    if (departmentId && departmentId !== "00000000-0000-0000-0000-000000000000") {
+      const dept = await tx.department.findFirst({
+        where: { id: departmentId, tenantId, deletedAt: null },
+        select: { id: true },
+      });
+      if (dept) validDepartmentId = dept.id;
+    }
+
+    if (!validDepartmentId) {
+      const fallbackDept = await tx.department.findFirst({
+        where: { tenantId, deletedAt: null },
+        select: { id: true },
+      });
+      if (fallbackDept) validDepartmentId = fallbackDept.id;
+    }
+
     // 1. Try finding a Tenant Admin
     const adminUser = await tx.user.findFirst({
       where: {
@@ -130,23 +148,58 @@ export class WorkloadService {
         role: "ADMIN",
       },
       include: {
-        employees: true,
+        employees: {
+          where: { deletedAt: null },
+        },
       },
     });
 
-    const adminEmployee = adminUser?.employees[0] || null;
+    let adminEmployee = adminUser?.employees[0] || null;
 
-    if (adminEmployee) {
-      await tx.assignment.create({
+    if (adminUser && !adminEmployee) {
+      adminEmployee = await tx.employee.create({
         data: {
           tenantId,
-          complaintId,
-          assigneeType: "EMPLOYEE",
-          employeeId: adminEmployee.id,
-          departmentId,
+          userId: adminUser.id,
+          name: adminUser.name || "Tenant Admin",
+          title: "Tenant Administrator",
         },
       });
+    }
 
+    const oldAssignments = await tx.assignment.findMany({
+      where: { complaintId },
+      select: { employeeId: true },
+    });
+
+    if (adminEmployee) {
+      if (oldAssignments.length === 0) {
+        await tx.assignment.create({
+          data: {
+            tenantId,
+            complaintId,
+            assigneeType: "EMPLOYEE",
+            employeeId: adminEmployee.id,
+            departmentId: validDepartmentId,
+          },
+        });
+      } else {
+        await tx.assignment.updateMany({
+          where: { complaintId },
+          data: {
+            assigneeType: "EMPLOYEE",
+            employeeId: adminEmployee.id,
+            departmentId: validDepartmentId,
+            assignedAt: new Date(),
+          },
+        });
+      }
+
+      for (const old of oldAssignments) {
+        if (old.employeeId && old.employeeId !== adminEmployee.id) {
+          await this.syncEmployeeLoad(tx, old.employeeId);
+        }
+      }
       await this.syncEmployeeLoad(tx, adminEmployee.id);
 
       return {
@@ -155,28 +208,47 @@ export class WorkloadService {
         employee_id: adminEmployee.id,
         employee_name: adminUser?.name || adminEmployee.name || "Tenant Admin",
         employee_email: adminUser?.email,
-        department_id: departmentId,
+        department_id: validDepartmentId,
         unassigned_alert: true,
-        alert_reason: "No active agents found in Groq-predicted department. Auto-assigned to Tenant Admin.",
+        alert_reason: "Escalated: Auto-assigned to Tenant Admin.",
       };
     }
 
-    // 2. Fallback to UNASSIGNED_QUEUE at department level
-    await tx.assignment.create({
-      data: {
-        tenantId,
-        complaintId,
-        assigneeType: "DEPARTMENT",
-        departmentId,
-      },
-    });
+    // 2. Fallback to UNASSIGNED_QUEUE
+    if (oldAssignments.length === 0) {
+      await tx.assignment.create({
+        data: {
+          tenantId,
+          complaintId,
+          assigneeType: "DEPARTMENT",
+          departmentId: validDepartmentId,
+          employeeId: null,
+        },
+      });
+    } else {
+      await tx.assignment.updateMany({
+        where: { complaintId },
+        data: {
+          assigneeType: "DEPARTMENT",
+          departmentId: validDepartmentId,
+          employeeId: null,
+          assignedAt: new Date(),
+        },
+      });
+    }
+
+    for (const old of oldAssignments) {
+      if (old.employeeId) {
+        await this.syncEmployeeLoad(tx, old.employeeId);
+      }
+    }
 
     return {
       assignee_type: "DEPARTMENT",
       assigned_to: "UNASSIGNED_QUEUE",
-      department_id: departmentId,
+      department_id: validDepartmentId,
       unassigned_alert: true,
-      alert_reason: "No active agents or admin found. Placed in Department Unassigned Queue with an alert.",
+      alert_reason: "Escalated: Placed in Unassigned Queue with an alert.",
     };
   }
 }

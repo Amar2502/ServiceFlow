@@ -48,12 +48,14 @@ export default function Register() {
         userId: string;
         tenantId: string;
         role: "ADMIN" | "AGENT";
+        employeeId?: string;
       }>("/api/auth/register", formData)
 
       login({
         userId: data.userId,
         tenantId: data.tenantId,
         role: data.role ?? "ADMIN",
+        employeeId: data.employeeId,
       })
       router.push("/dashboard")
     } catch (err: unknown) {

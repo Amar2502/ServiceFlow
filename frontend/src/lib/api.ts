@@ -43,10 +43,17 @@ export async function apiRequest<T>(
   const data = await parseJsonSafe(text);
 
   if (!res.ok) {
-    const msg =
-      typeof data === "object" && data !== null && "message" in data
-        ? String((data as { message: string }).message)
-        : res.statusText;
+    let msg = res.statusText;
+    if (typeof data === "object" && data !== null) {
+      const obj = data as Record<string, unknown>;
+      if (typeof obj.detail === "string" && obj.detail) {
+        msg = obj.detail;
+      } else if (typeof obj.message === "string" && obj.message) {
+        msg = obj.message;
+      } else if (typeof obj.title === "string" && obj.title) {
+        msg = obj.title;
+      }
+    }
     throw new ApiError(msg || "Request failed", res.status, data);
   }
 

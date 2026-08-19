@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { db } from "../../config/db";
 import { config } from "../../config/config";
 import { Prisma } from "../../generated/prisma";
+import { WorkloadService } from "../complaints/workload.service";
 
 export const getAllActiveEmployees = async (req: Request, res: Response) => {
   const tenantId = req.user?.tenantId;
@@ -72,8 +73,7 @@ export const getAllDeletedEmployees = async (req: Request, res: Response) => {
 };
 
 export const deleteEmployee = async (req: Request, res: Response) => {
-  const { employeeId } = req.body as { tenantId: string; employeeId: string };
-
+  const { employeeId } = req.body as { employeeId: string };
   const tenantId = req.user?.tenantId;
 
   if (!employeeId || !tenantId) {
@@ -82,13 +82,57 @@ export const deleteEmployee = async (req: Request, res: Response) => {
   }
 
   try {
-    await db.employee.updateMany({
+    const existingEmp = await db.employee.findFirst({
       where: { id: employeeId, tenantId },
-      data: { deletedAt: new Date() },
     });
-    res.status(200).json({ message: "Employee deleted successfully" });
+
+    if (!existingEmp) {
+      res.status(404).json({ message: "Employee profile not found" });
+      return;
+    }
+
+    await db.$transaction(async (tx) => {
+      // 1. Soft-delete employee & reset load
+      await tx.employee.update({
+        where: { id: employeeId },
+        data: {
+          deletedAt: new Date(),
+          load: 0,
+        },
+      });
+
+      // 2. Find active assignments assigned to this employee
+      const activeAssignments = await tx.assignment.findMany({
+        where: {
+          employeeId,
+          tenantId,
+          complaint: {
+            deletedAt: null,
+            status: { in: ["open", "in_progress"] },
+          },
+        },
+        select: {
+          id: true,
+          complaintId: true,
+          departmentId: true,
+        },
+      });
+
+      // 3. Re-route active tickets to Tenant Admin / Unassigned Queue
+      for (const assignment of activeAssignments) {
+        await WorkloadService.handleUnassignedDepartmentState(
+          tx,
+          tenantId,
+          assignment.departmentId,
+          assignment.complaintId
+        );
+      }
+    });
+
+    res.status(200).json({ message: "Employee deleted successfully and active tickets re-routed" });
   } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error("[DeleteEmployee Error]:", err);
+    res.status(500).json({ message: "Internal server error deleting employee" });
   }
 };
 
@@ -187,6 +231,16 @@ export const createEmployeeVectors = async (req: Request, res: Response) => {
       // AI zero-shot works without ML service
     }
 
+    const existingEmp = await db.employee.findUnique({
+      where: { id: employeeId },
+      select: { tenantId: true },
+    });
+
+    if (!existingEmp || existingEmp.tenantId !== tenantId) {
+      res.status(403).json({ message: "Forbidden: Employee profile access denied" });
+      return;
+    }
+
     const employeeResult = await db.employee.update({
       where: { id: employeeId },
       data: {
@@ -211,14 +265,25 @@ export const createEmployeeVectors = async (req: Request, res: Response) => {
 };
 
 export const updateEmployeeName = async (req: Request, res: Response) => {
-  const { employeeId, name } = req.body as { tenantId: string; employeeId: string; name: string };
+  const { employeeId, name } = req.body as { employeeId: string; name: string };
+  const tenantId = req.user?.tenantId;
 
-  if (!employeeId || !name) {
+  if (!employeeId || !name || !tenantId) {
     res.status(400).json({ message: "All fields are required" });
     return;
   }
 
   try {
+    const existingEmp = await db.employee.findUnique({
+      where: { id: employeeId },
+      select: { tenantId: true },
+    });
+
+    if (!existingEmp || existingEmp.tenantId !== tenantId) {
+      res.status(403).json({ message: "Forbidden: Employee profile access denied" });
+      return;
+    }
+
     const updated = await db.$transaction(async (tx) => {
       const emp = await tx.employee.update({
         where: { id: employeeId },
@@ -255,15 +320,32 @@ export const getMyAssignments = async (req: Request, res: Response) => {
   const tenantId = req.user?.tenantId;
 
   if (!tenantId) {
-    res.status(400).json({ message: "Unauthorized" });
+    res.status(401).json({ message: "Unauthorized" });
     return;
   }
 
   try {
+    const targetEmployee = await db.employee.findUnique({
+      where: { id: employeeId },
+      select: { tenantId: true, userId: true },
+    });
+
+    if (!targetEmployee || targetEmployee.tenantId !== tenantId) {
+      res.status(403).json({ message: "Forbidden: Access to specified employee assignments is denied" });
+      return;
+    }
+
+    // Security Check: AGENT users can only view their own assigned queue
+    if (req.user?.role === "AGENT" && targetEmployee.userId !== req.user.userId) {
+      res.status(403).json({ message: "Forbidden: Agents can only access their own assignments" });
+      return;
+    }
+
     const assignments = await db.assignment.findMany({
       where: {
         employeeId,
-        complaint: { deletedAt: null },
+        tenantId,
+        complaint: { tenantId, deletedAt: null },
       },
       include: { complaint: true },
       orderBy: { assignedAt: "desc" },

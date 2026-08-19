@@ -21,7 +21,8 @@ export function sendProblemDetails(res: Response, problem: ProblemDetailsOptions
     title: problem.title,
     status: problem.status,
     detail: problem.detail,
-    instance: problem.instance || res.req.originalUrl,
+    message: problem.detail || problem.title,
+    instance: problem.instance || res.req?.originalUrl,
     ...(problem.invalid_params && { invalid_params: problem.invalid_params }),
   };
 

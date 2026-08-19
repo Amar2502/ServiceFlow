@@ -1,45 +1,44 @@
 import { Request, Response } from "express";
-import { db } from "../../config/db";
+import { InviteService } from "./invite.service";
 import { config } from "../../config/config";
-import { hashPasswordDev } from "../../utils/hash";
 import jwt from "jsonwebtoken";
 import { Role } from "../../generated/prisma";
 
 export const createInvite = async (req: Request, res: Response) => {
-  const { role } = req.body as { role: string };
+  const { role, departmentId } = req.body as { role: string; departmentId?: string };
   const tenantId = req.user?.tenantId;
 
   if (!role || !tenantId) {
-    res.status(400).json({ message: "Invalid credentials" });
+    res.status(400).json({ message: "Role and tenant authentication required" });
     return;
   }
 
   const normalizedRole = role.trim().toUpperCase() as Role;
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  if (!["ADMIN", "AGENT"].includes(normalizedRole)) {
+    res.status(400).json({ message: "Invalid role specified for invite" });
+    return;
+  }
 
   try {
-    const invite = await db.invite.create({
-      data: {
-        tenantId,
-        role: normalizedRole,
-        expiresAt,
-      },
-      select: {
-        id: true,
-        token: true,
-        expiresAt: true,
-      },
+    const inviteData = await InviteService.createInvite({
+      tenantId,
+      role: normalizedRole,
+      departmentId,
     });
 
     res.status(201).json({
-      id: invite.id,
-      token: invite.token,
-      expires_at: invite.expiresAt,
-      invite_url: `${config.FRONTEND_URL}/invite/${invite.token}`,
-      message: "Invite created successfully",
+      id: inviteData.id,
+      token: inviteData.token,
+      role: inviteData.role,
+      department_id: inviteData.department_id,
+      expires_at: inviteData.expires_at,
+      invite_url: inviteData.invite_url,
+      message: "Single-use invitation token created and cached successfully",
     });
-  } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err: any) {
+    console.error("[CreateInvite Error]:", err);
+    res.status(500).json({ message: "Internal server error creating invite" });
   }
 };
 
@@ -53,63 +52,25 @@ export const loginWithInvite = async (req: Request, res: Response) => {
   };
 
   if (!name || !email || !password || !token || !title) {
-    res.status(400).json({ message: "Invalid credentials" });
+    res.status(400).json({ message: "All fields (name, email, password, token, title) are required" });
     return;
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
-
   try {
-    const invite = await db.invite.findFirst({
-      where: { token },
-    });
-
-    if (!invite) {
-      res.status(400).json({ message: "Invalid token" });
-      return;
-    }
-
-    if (invite.expiresAt < new Date()) {
-      res.status(400).json({ message: "Invite expired" });
-      return;
-    }
-
-    const passwordHash = hashPasswordDev(password);
-
-    const { user, employee } = await db.$transaction(async (tx) => {
-      await tx.invite.update({
-        where: { id: invite.id },
-        data: { used: true },
-      });
-
-      const userRecord = await tx.user.create({
-        data: {
-          tenantId: invite.tenantId,
-          email: normalizedEmail,
-          passwordHash,
-          role: invite.role,
-          name,
-        },
-      });
-
-      const employeeRecord = await tx.employee.create({
-        data: {
-          tenantId: invite.tenantId,
-          userId: userRecord.id,
-          title,
-          name,
-        },
-      });
-
-      return { user: userRecord, employee: employeeRecord };
+    const result = await InviteService.redeemInvite({
+      name,
+      email,
+      password,
+      token,
+      title,
     });
 
     const authtoken: string = jwt.sign(
       {
-        userId: user.id,
-        tenantId: invite.tenantId,
-        employeeId: employee.id,
-        role: invite.role,
+        userId: result.user.id,
+        tenantId: result.tenantId,
+        employeeId: result.employee.id,
+        role: result.role,
       },
       config.JWT_SECRET,
       { expiresIn: "30d" }
@@ -121,14 +82,25 @@ export const loginWithInvite = async (req: Request, res: Response) => {
     });
 
     res.status(200).json({
-      userId: user.id,
-      tenantId: invite.tenantId,
-      employeeId: employee.id,
-      role: invite.role,
-      message: "Invite login successful",
+      userId: result.user.id,
+      tenantId: result.tenantId,
+      employeeId: result.employee.id,
+      role: result.role,
+      message: "Invitation redeemed and account registered successfully",
     });
-    return;
-  } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err: any) {
+    const msg = err.message || "";
+    if (msg === "INVALID_TOKEN") {
+      res.status(400).json({ message: "Invalid invitation token" });
+    } else if (msg === "INVITE_ALREADY_USED") {
+      res.status(400).json({ message: "This invitation link has already been redeemed" });
+    } else if (msg === "INVITE_EXPIRED") {
+      res.status(400).json({ message: "This invitation link has expired" });
+    } else if (msg === "EMAIL_ALREADY_EXISTS" || err.code === "P2002") {
+      res.status(400).json({ message: "An account with this email address already exists in this organization" });
+    } else {
+      console.error("[LoginWithInvite Error]:", err);
+      res.status(500).json({ message: "Internal server error redeeming invitation" });
+    }
   }
 };

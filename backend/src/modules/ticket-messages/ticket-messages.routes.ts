@@ -16,7 +16,7 @@ router.get("/imagekit-auth", authenticateJwt, requireRole("ADMIN", "AGENT"), get
 // Message creation (ADMIN or AGENT)
 router.post("/create", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ body: CreateMessageSchema }), createMessage);
 
-// Get message history (Public customers get isInternal: false filter; staff get full thread)
-router.get("/:complaintId", validateRequest({ params: GetMessagesParamSchema }), getMessagesForComplaint);
+// Get message history (ADMIN or AGENT only)
+router.get("/:complaintId", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ params: GetMessagesParamSchema }), getMessagesForComplaint);
 
 export default router;

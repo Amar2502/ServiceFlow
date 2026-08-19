@@ -27,6 +27,10 @@ export const createMessage = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Complaint not found" });
     }
 
+    if (user?.tenantId && complaint.tenantId !== user.tenantId) {
+      return res.status(403).json({ message: "Forbidden: Access to specified complaint is denied" });
+    }
+
     const senderName = user?.name || (senderType === "CUSTOMER" ? "Customer" : "Support Agent");
     const senderId = user?.userId || null;
 
@@ -80,6 +84,10 @@ export const getMessagesForComplaint = async (req: Request, res: Response) => {
 
     if (!complaint) {
       return res.status(404).json({ message: "Complaint not found" });
+    }
+
+    if (user?.tenantId && complaint.tenantId !== user.tenantId) {
+      return res.status(403).json({ message: "Forbidden: Access to specified complaint is denied" });
     }
 
     // Security Filter: If user is authenticated as staff (ADMIN / AGENT), fetch all messages.

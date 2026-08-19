@@ -276,6 +276,7 @@ export const getAllComplaints = async (req: Request, res: Response) => {
       orderBy: { createdAt: "desc" },
       include: {
         assignments: {
+          orderBy: { assignedAt: "desc" },
           include: {
             employee: { include: { user: true } },
             department: true,
@@ -334,6 +335,7 @@ export const getComplaintDetails = async (req: Request, res: Response) => {
       where: { id: complaintId },
       include: {
         assignments: {
+          orderBy: { assignedAt: "desc" },
           include: {
             employee: { include: { user: true } },
             department: true,

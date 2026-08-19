@@ -15,10 +15,12 @@ import {
   Menu,
   Terminal,
   BarChart2,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { useEffect, useMemo, useState } from "react";
+import { OnboardingModal } from "@/components/onboarding-modal";
 import {
   Sheet,
   SheetContent,
@@ -139,6 +141,7 @@ export default function DashboardLayout({
   const { user, ready, logout } = useAuth();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -155,6 +158,8 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row bg-[#faf6f2]">
+      <OnboardingModal forceOpen={showGuide} onClose={() => setShowGuide(false)} />
+
       {/* Desktop sidebar */}
       <aside className="hidden md:flex bg-[#EED9C4] text-[#3d2a1c] w-64 shrink-0 flex-col border-r border-[#dfc7ae] min-h-screen">
         <div className="flex items-center gap-2.5 p-4 border-b border-[#dfc7ae]">
@@ -175,7 +180,17 @@ export default function DashboardLayout({
           <NavLinks />
         </nav>
 
-        <div className="border-t border-[#dfc7ae] p-4 space-y-3">
+        <div className="border-t border-[#dfc7ae] p-4 space-y-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start text-xs font-semibold border-[#3d2a1c]/30 bg-[#3d2a1c]/10 hover:bg-[#3d2a1c] hover:text-[#EED9C4] text-[#3d2a1c] transition-all"
+            onClick={() => setShowGuide(true)}
+          >
+            <HelpCircle className="h-4 w-4 mr-2 text-amber-700" />
+            Interactive Guide
+          </Button>
+
           <div className="rounded-lg bg-[#dfc7ae]/50 px-3 py-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-slate-900">{user.role}</span>

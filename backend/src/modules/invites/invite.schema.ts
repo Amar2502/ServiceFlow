@@ -4,6 +4,7 @@ export const CreateInviteSchema = z.object({
   role: z.enum(["ADMIN", "AGENT"], {
     message: "Role must be 'ADMIN' or 'AGENT'",
   }),
+  departmentId: z.string().uuid("Invalid departmentId UUID format").optional(),
 });
 
 export const LoginWithInviteSchema = z.object({

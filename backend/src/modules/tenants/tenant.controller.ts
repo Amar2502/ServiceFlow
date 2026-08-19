@@ -2,16 +2,27 @@ import { Request, Response } from "express";
 import { db } from "../../config/db";
 
 export const updateTenantName = async (req: Request, res: Response) => {
-  const { tenantId, name } = req.body as { tenantId: string; name: string };
+  const { tenantId, name } = req.body as { tenantId?: string; name: string };
+  const authTenantId = req.user?.tenantId;
 
-  if (!tenantId || !name) {
-    res.status(400).json({ message: "All fields are required" });
+  if (!authTenantId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  if (!name) {
+    res.status(400).json({ message: "Tenant name is required" });
+    return;
+  }
+
+  if (tenantId && tenantId !== authTenantId) {
+    res.status(403).json({ message: "Forbidden: Cannot modify settings for another tenant" });
     return;
   }
 
   try {
     const tenant = await db.tenant.update({
-      where: { id: tenantId },
+      where: { id: authTenantId },
       data: { name },
       select: { id: true, name: true },
     });
@@ -27,16 +38,27 @@ export const updateTenantName = async (req: Request, res: Response) => {
 };
 
 export const updateTenantRoutingMode = async (req: Request, res: Response) => {
-  const { tenantId, routingMode } = req.body as { tenantId: string; routingMode: "DEPARTMENT" | "EMPLOYEE" };
+  const { tenantId, routingMode } = req.body as { tenantId?: string; routingMode: "DEPARTMENT" | "EMPLOYEE" };
+  const authTenantId = req.user?.tenantId;
 
-  if (!tenantId || !routingMode) {
-    res.status(400).json({ message: "All fields are required" });
+  if (!authTenantId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  if (!routingMode) {
+    res.status(400).json({ message: "Routing mode is required" });
+    return;
+  }
+
+  if (tenantId && tenantId !== authTenantId) {
+    res.status(403).json({ message: "Forbidden: Cannot modify settings for another tenant" });
     return;
   }
 
   try {
     const tenant = await db.tenant.update({
-      where: { id: tenantId },
+      where: { id: authTenantId },
       data: { routingMode },
       select: { id: true, routingMode: true },
     });

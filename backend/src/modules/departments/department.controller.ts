@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { db } from "../../config/db";
 import { config } from "../../config/config";
 import { Prisma } from "../../generated/prisma";
+import { WorkloadService } from "../complaints/workload.service";
 
 export const createDepartment = async (req: Request, res: Response) => {
   const { name, keywords } = req.body as { name: string; keywords: string };
@@ -202,28 +203,68 @@ export const getAllDeletedDepartments = async (req: Request, res: Response) => {
 };
 
 export const deleteDepartment = async (req: Request, res: Response) => {
-  const { departmentId } = req.body as { tenantId: string; departmentId: string };
-
-  if (!departmentId) {
-    res.status(400).json({ message: "All fields are required" });
-    return;
-  }
-
+  const { departmentId } = req.body as { departmentId: string };
   const tenantId = req.user?.tenantId;
 
-  if (!tenantId) {
-    res.status(400).json({ message: "Unauthorized" });
+  if (!departmentId || !tenantId) {
+    res.status(400).json({ message: "departmentId and tenant authentication required" });
     return;
   }
 
   try {
-    await db.department.updateMany({
+    const dept = await db.department.findFirst({
       where: { id: departmentId, tenantId },
-      data: { deletedAt: new Date() },
     });
-    res.status(200).json({ message: "Department deleted successfully" });
+
+    if (!dept) {
+      res.status(404).json({ message: "Department not found" });
+      return;
+    }
+
+    await db.$transaction(async (tx) => {
+      // 1. Soft-delete department
+      await tx.department.update({
+        where: { id: departmentId },
+        data: { deletedAt: new Date() },
+      });
+
+      // 2. Unlink employees mapped to this department
+      await tx.employee.updateMany({
+        where: { departmentId, tenantId },
+        data: { departmentId: null },
+      });
+
+      // 3. Find active assignments mapped to this department
+      const activeAssignments = await tx.assignment.findMany({
+        where: {
+          departmentId,
+          tenantId,
+          complaint: {
+            deletedAt: null,
+            status: { in: ["open", "in_progress"] },
+          },
+        },
+        select: {
+          id: true,
+          complaintId: true,
+        },
+      });
+
+      // 4. Re-route active tickets to Tenant Admin or General Unassigned Queue
+      for (const assignment of activeAssignments) {
+        await WorkloadService.handleUnassignedDepartmentState(
+          tx,
+          tenantId,
+          null,
+          assignment.complaintId
+        );
+      }
+    });
+
+    res.status(200).json({ message: "Department deleted successfully, staff unlinked, and active tickets re-routed" });
   } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error("[DeleteDepartment Error]:", err);
+    res.status(500).json({ message: "Internal server error deleting department" });
   }
 };
 

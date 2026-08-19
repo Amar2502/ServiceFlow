@@ -44,13 +44,24 @@ export const generateApiKey = async (req: Request, res: Response) => {
 
 export const deleteApiKey = async (req: Request, res: Response) => {
   const { apiKeyId } = req.body as { apiKeyId: string };
+  const tenantId = req.user?.tenantId;
 
-  if (!apiKeyId) {
-    res.status(400).json({ message: "apiKeyId is required" });
+  if (!apiKeyId || !tenantId) {
+    res.status(400).json({ message: "apiKeyId and tenant authentication required" });
     return;
   }
 
   try {
+    const existingKey = await db.apiKey.findUnique({
+      where: { id: apiKeyId },
+      select: { tenantId: true },
+    });
+
+    if (!existingKey || existingKey.tenantId !== tenantId) {
+      res.status(403).json({ message: "Forbidden: Access to specified API key is denied" });
+      return;
+    }
+
     await db.apiKey.delete({
       where: { id: apiKeyId },
     });

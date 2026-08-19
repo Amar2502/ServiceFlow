@@ -59,12 +59,14 @@ export default function Login() {
         userId: string;
         tenantId: string;
         role: "ADMIN" | "AGENT";
+        employeeId?: string;
       }>("/api/auth/login", formData);
 
       login({
         userId: data.userId,
         tenantId: data.tenantId,
         role: data.role,
+        employeeId: data.employeeId,
       });
       router.push("/dashboard");
     } catch (err: unknown) {
