@@ -22,3 +22,9 @@ export const UpdateEmployeeNameSchema = z.object({
   employeeId: z.string().uuid("Invalid employee ID format"),
   name: z.string().min(2, "Employee name must be at least 2 characters"),
 });
+
+export const UpdateEmployeeTitleSchema = z.object({
+  employeeId: z.string().uuid("Invalid employee ID format"),
+  title: z.string().min(2, "Employee title must be at least 2 characters"),
+});
+

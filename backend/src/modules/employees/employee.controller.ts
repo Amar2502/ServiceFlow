@@ -309,6 +309,43 @@ export const updateEmployeeName = async (req: Request, res: Response) => {
   }
 };
 
+export const updateEmployeeTitle = async (req: Request, res: Response) => {
+  const { employeeId, title } = req.body as { employeeId: string; title: string };
+  const tenantId = req.user?.tenantId;
+
+  if (!employeeId || !title || !tenantId) {
+    res.status(400).json({ message: "All fields are required" });
+    return;
+  }
+
+  try {
+    const existingEmp = await db.employee.findUnique({
+      where: { id: employeeId },
+      select: { tenantId: true },
+    });
+
+    if (!existingEmp || existingEmp.tenantId !== tenantId) {
+      res.status(403).json({ message: "Forbidden: Employee profile access denied" });
+      return;
+    }
+
+    const updated = await db.employee.update({
+      where: { id: employeeId },
+      data: { title },
+      select: { id: true, name: true, title: true },
+    });
+
+    res.status(200).json({
+      id: updated.id,
+      name: updated.name,
+      title: updated.title,
+      message: "Employee title / role updated successfully",
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const getMyAssignments = async (req: Request, res: Response) => {
   const { employeeId } = req.params as { employeeId: string };
 

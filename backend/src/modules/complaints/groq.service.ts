@@ -49,8 +49,8 @@ export class GroqService {
     });
 
     const validDepartmentCodes = Array.from(deptCodeToUuidMap.keys());
-    const primaryModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-    const fallbackModel = "llama-3.3-70b-versatile";
+    const primaryModel = process.env.GROQ_MODEL || "qwen/qwen3.6-27b";
+    const fallbackModel = "openai/gpt-oss-20b";
 
     // 2. Attempt primary model with Exponential Backoff Retries (handles HTTP 429)
     try {

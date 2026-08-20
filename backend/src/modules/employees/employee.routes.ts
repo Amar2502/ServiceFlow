@@ -8,6 +8,7 @@ import {
   mapEmployeeToDepartment,
   restoreEmployee,
   updateEmployeeName,
+  updateEmployeeTitle,
 } from "./employee.controller";
 import { authenticateJwt, requireRole } from "../../middlewares/role.middleware";
 import { validateRequest } from "../../middlewares/validate.middleware";
@@ -17,6 +18,7 @@ import {
   EmployeeVectorsSchema,
   MapDepartmentSchema,
   UpdateEmployeeNameSchema,
+  UpdateEmployeeTitleSchema,
 } from "./employee.schema";
 
 const router = Router();
@@ -32,5 +34,6 @@ router.patch("/restore", authenticateJwt, requireRole("ADMIN"), validateRequest(
 router.patch("/map-department", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: MapDepartmentSchema }), mapEmployeeToDepartment);
 router.post("/vectors", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: EmployeeVectorsSchema }), createEmployeeVectors);
 router.patch("/update-name", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: UpdateEmployeeNameSchema }), updateEmployeeName);
+router.patch("/update-title", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: UpdateEmployeeTitleSchema }), updateEmployeeTitle);
 
 export default router;

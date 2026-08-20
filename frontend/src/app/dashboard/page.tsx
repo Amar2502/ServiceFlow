@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, FileText, BarChart2, MessageSquare, ClipboardList, Terminal } from "lucide-react";
+import { Users, FileText, BarChart2, MessageSquare, ClipboardList, Terminal, Sparkles, CheckCircle2, AlertTriangle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,141 +10,120 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Overview } from "./overview";
 import { RecentComplaints, type RecentComplaint } from "./recent-complaints";
-import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-
 import { Badge } from "@/components/ui/badge";
-import { Sparkles } from "lucide-react";
+import { useComplaints } from "@/hooks/use-complaints";
+import { useActiveEmployees } from "@/hooks/use-employees";
+import { useAnalyticsOverview } from "@/hooks/use-analytics";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    totalComplaints: 0,
-    pendingComplaints: 0,
-    employees: 0,
-    customers: 0,
-    assignments: 0,
-  });
-  const [recent, setRecent] = useState<RecentComplaint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const tenantId = user?.tenantId;
 
-  useEffect(() => {
-    let cancelled = false;
-    async function run() {
-      if (!user) return;
-      setLoading(true);
-      try {
-        if (user.role === "ADMIN") {
-          const [complaintsRes, employeesRes] = await Promise.all([
-            api.get<Record<string, unknown>[]>("/api/complaints/all"),
-            api.get<unknown[]>("/api/employees/active"),
-          ]);
-          if (cancelled) return;
-          const complaints = complaintsRes || [];
-          const active = complaints.filter((c: Record<string, unknown>) => !c.deleted_at);
-          const pending = active.filter(
-            (c: Record<string, unknown>) =>
-              c.status === "open" || c.status === "in_progress"
-          );
-          const customers = new Set(
-            active.map((c: Record<string, unknown>) => c.customer_email).filter(Boolean)
-          );
-          setStats({
-            totalComplaints: active.length,
-            pendingComplaints: pending.length,
-            employees: employeesRes?.length ?? 0,
-            customers: customers.size,
-            assignments: 0,
-          });
-          const sorted = [...active].sort(
-            (a, b) =>
-              new Date(String(b.created_at)).getTime() -
-              new Date(String(a.created_at)).getTime()
-          );
-          setRecent(
-            sorted.slice(0, 6).map((c: Record<string, unknown>) => ({
-              id: String(c.id),
-              customer_name: String(c.customer_name ?? ""),
-              title: String(c.title ?? ""),
-              description: c.description ? String(c.description) : undefined,
-              status: String(c.status ?? ""),
-              created_at: String(c.created_at ?? ""),
-            }))
-          );
-        } else if (user.role === "AGENT" && user.employeeId) {
-          const rows = await api.get<{ complaint_id: string }[]>(
-            `/api/employees/my-assignments/${user.employeeId}`
-          );
-          if (cancelled) return;
-          setStats((s) => ({ ...s, assignments: rows.length, totalComplaints: rows.length }));
-          setRecent([]);
-        } else {
-          setRecent([]);
-        }
-      } catch {
-        if (!cancelled) {
-          setRecent([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  // Real-time backend queries connected via TanStack React Query + Socket.io listeners
+  const { data: complaints = [], isLoading: complaintsLoading } = useComplaints(tenantId);
+  const { data: employees = [], isLoading: employeesLoading } = useActiveEmployees(tenantId);
+  const { data: analytics, isLoading: analyticsLoading } = useAnalyticsOverview();
+
+  const loading = complaintsLoading || employeesLoading;
+
+  // Filter non-deleted complaints
+  const activeComplaints = complaints.filter((c) => c.status !== "deleted");
+  const pendingComplaints = activeComplaints.filter(
+    (c) => c.status === "open" || c.status === "in_progress"
+  );
+  const resolvedComplaints = activeComplaints.filter((c) => c.status === "resolved");
+  const unassignedComplaints = activeComplaints.filter(
+    (c) => !c.assignment || (!c.assignment.employee_id && !c.assignment.department_id)
+  );
+
+  // Distinct customer count
+  const customersSet = new Set(
+    activeComplaints.map((c) => c.customer_email).filter(Boolean)
+  );
+
+  // My agent assignments
+  const myAssignments = activeComplaints.filter(
+    (c) => c.assignment?.employee_id === user?.employeeId
+  );
+
+  // Sorted recent 6 complaints
+  const sortedRecent = [...activeComplaints]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 6);
+
+  const recentItems: RecentComplaint[] = sortedRecent.map((c) => ({
+    id: c.id,
+    customer_name: c.customer_name || "Valued Customer",
+    title: c.title,
+    description: c.description || undefined,
+    status: c.status,
+    created_at: c.created_at,
+  }));
 
   if (user?.role === "AGENT") {
     return (
-      <div className="flex-1 overflow-auto space-y-6 max-w-3xl">
+      <div className="flex-1 overflow-auto space-y-6 max-w-4xl">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-          <p className="text-muted-foreground">
-            You’re on the agent workspace. Routing happens over the ServiceFlow API from your
-            product — this console is for day‑to‑day work.
+          <h1 className="text-2xl font-bold tracking-tight">Agent Console</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Welcome back. Manage your assigned customer complaints below.
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+
+        <div className="grid gap-4 sm:grid-cols-3">
           <Card className="bg-white border-[#EED9C4]">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Your queue</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">My Open Queue</CardTitle>
+              <ClipboardList className="h-4 w-4 text-[#c9a382]" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{loading ? "…" : stats.assignments}</div>
-              <p className="text-xs text-muted-foreground mt-1">Open assignments</p>
+              <div className="text-3xl font-bold">{loading ? "…" : myAssignments.filter(c => c.status !== "resolved").length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Tickets assigned to you</p>
             </CardContent>
           </Card>
+
+          <Card className="bg-white border-[#EED9C4]">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Resolved by Me</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{loading ? "…" : myAssignments.filter(c => c.status === "resolved").length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Completed complaints</p>
+            </CardContent>
+          </Card>
+
           <Card className="bg-white border-[#EED9C4] flex flex-col justify-center">
             <CardContent className="pt-6">
               <Button asChild className="w-full bg-[#3d2a1c] hover:bg-[#2a1d14] text-[#faf6f2]">
                 <Link href="/dashboard/my-assignments">
                   <ClipboardList className="h-4 w-4 mr-2" />
-                  Open my assignments
+                  View My Assignments Queue
                 </Link>
               </Button>
             </CardContent>
           </Card>
         </div>
+
         <Card className="border-dashed border-[#dfc7ae] bg-[#faf6f2]">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Terminal className="h-4 w-4" />
-              API reminder
+              <Terminal className="h-4 w-4 text-[#8c6d4e]" />
+              API Ingestion Notice
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              Inbound tickets arrive via{" "}
-              <code className="text-xs bg-muted px-1 rounded">POST /api/complaints/create</code>{" "}
-              with a Bearer API key. See{" "}
-              <Link href="/dashboard/api-docs" className="text-[#8c6d4e] underline">
-                API docs
+              Incoming customer tickets arrive via{" "}
+              <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono text-[#3d2a1c]">POST /api/complaints/create</code>{" "}
+              with a valid Bearer API key. See{" "}
+              <Link href="/dashboard/api-docs" className="text-[#8c6d4e] underline font-medium">
+                API Docs
               </Link>{" "}
-              for the exact payload.
+              for integration samples.
             </p>
           </CardContent>
         </Card>
@@ -153,73 +132,112 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+    <div className="flex-1 overflow-auto space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">Console</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Console Overview</h1>
             <Badge className={user?.routingMode === "EMPLOYEE" ? "bg-purple-100 text-purple-900 border-purple-300 font-mono text-[11px]" : "bg-amber-100 text-amber-900 border-amber-300 font-mono text-[11px]"}>
               <Sparkles className="h-3 w-3 mr-1" />
-              Strategy: {user?.routingMode === "EMPLOYEE" ? "EMPLOYEE (Direct Agent)" : "DEPARTMENT (Workload)"}
+              Strategy: {user?.routingMode === "EMPLOYEE" ? "EMPLOYEE (Direct Role)" : "DEPARTMENT (Workload Balancer)"}
             </Badge>
           </div>
           <p className="text-muted-foreground text-sm mt-1">
-            Tenant overview — wire your apps to the routing API, then operate here.
+            Real-time multi-tenant operations dashboard & key metrics.
           </p>
         </div>
-        <Button asChild variant="outline" className="bg-white border-[#dfc7ae]">
-          <Link href="/dashboard/api-docs">API reference</Link>
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" className="bg-white border-[#dfc7ae]">
+            <Link href="/dashboard/complaints">Manage Complaints Queue</Link>
+          </Button>
+          <Button asChild className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-[#faf6f2]">
+            <Link href="/dashboard/api-docs">API Docs</Link>
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Primary Metrics Cards Connected to Real Backend API */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card className="bg-white border-[#EED9C4]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Complaints</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Complaints</CardTitle>
             <MessageSquare className="h-4 w-4 text-[#c9a382]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loading ? "…" : stats.totalComplaints}</div>
+            <div className="text-2xl font-bold">{loading ? "…" : activeComplaints.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">All ingested tickets</p>
           </CardContent>
         </Card>
+
         <Card className="bg-white border-[#EED9C4]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <FileText className="h-4 w-4 text-[#c9a382]" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Active / Pending</CardTitle>
+            <FileText className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loading ? "…" : stats.pendingComplaints}</div>
+            <div className="text-2xl font-bold">{loading ? "…" : pendingComplaints.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Open & In Progress</p>
           </CardContent>
         </Card>
+
         <Card className="bg-white border-[#EED9C4]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Agents</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Resolved</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{loading ? "…" : resolvedComplaints.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Completed tickets</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-[#EED9C4]">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Active Agents</CardTitle>
             <Users className="h-4 w-4 text-[#c9a382]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loading ? "…" : stats.employees}</div>
+            <div className="text-2xl font-bold">{loading ? "…" : employees.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Staff members</p>
           </CardContent>
         </Card>
+
         <Card className="bg-white border-[#EED9C4]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customers</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Distinct Customers</CardTitle>
             <BarChart2 className="h-4 w-4 text-[#c9a382]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loading ? "…" : stats.customers}</div>
-            <p className="text-xs text-muted-foreground mt-1">Distinct emails</p>
+            <div className="text-2xl font-bold">{loading ? "…" : customersSet.size}</div>
+            <p className="text-xs text-muted-foreground mt-1">Unique customer emails</p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="recent" className="space-y-4 mt-6">
+      {unassignedComplaints.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50/50">
+          <CardContent className="py-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-amber-900 text-sm font-medium">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <span>{unassignedComplaints.length} complaint(s) require Admin manual routing assignment.</span>
+            </div>
+            <Button asChild size="sm" variant="outline" className="border-amber-400 text-amber-900 hover:bg-amber-100">
+              <Link href="/dashboard/complaints">Review Unassigned Queue</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tabs with Real Analytics & Recent Complaints */}
+      <Tabs defaultValue="recent" className="space-y-4">
         <TabsList className="bg-[#f5eadf]">
-          <TabsTrigger value="recent">Latest tickets</TabsTrigger>
-          <TabsTrigger value="overview">Trend (sample)</TabsTrigger>
+          <TabsTrigger value="recent">Latest Tickets</TabsTrigger>
+          <TabsTrigger value="overview">Analytics & MTTR Overview</TabsTrigger>
         </TabsList>
 
         <TabsContent value="recent" className="space-y-4">
-          <RecentComplaints items={recent} />
+          <RecentComplaints items={recentItems} />
         </TabsContent>
 
         <TabsContent value="overview">

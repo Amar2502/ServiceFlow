@@ -33,44 +33,91 @@ export const createComplaint = async (req: Request, res: Response) => {
 
   try {
     const responsePayload = await db.$transaction(async (tx) => {
-      // 1. Fetch active tenant departments for zero-shot LLM matching
-      const dbDepartments = await tx.department.findMany({
-        where: {
-          tenantId,
-          deletedAt: null,
-        },
+      // 1. Fetch tenant routing mode (DEPARTMENT vs EMPLOYEE)
+      const tenant = await tx.tenant.findUnique({
+        where: { id: tenantId },
+        select: { routingMode: true },
       });
 
+      const routingMode = tenant?.routingMode || "DEPARTMENT";
       let aiResult: any = null;
       let isConfidentMatch = true;
+      let targetDepartment: any = null;
+      let targetEmployee: any = null;
 
-      if (dbDepartments.length === 0) {
-        isConfidentMatch = false;
-        aiResult = {
-          priority: "MEDIUM",
-          sentiment: "NEUTRAL",
-          summary: title,
-          suggested_reply: "Thank you for reaching out. An administrator will review your ticket shortly.",
-          reasoning: "No active departments configured. Ticket placed in Admin Manual Assignment queue.",
-          confidence: 0.0,
-          department_id: null,
-        };
-      } else {
-        // Prepare department context list for Groq AI
-        const deptContexts: DepartmentRoutingContext[] = dbDepartments.map((d) => ({
-          id: d.id,
-          code: d.name.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
-          name: d.name,
-          description: d.keywords && d.keywords.length > 0 ? d.keywords.join(", ") : d.name,
-        }));
+      if (routingMode === "EMPLOYEE") {
+        // EMPLOYEE-CENTRIC ROUTING MODE: Route directly to employee profiles based on role title & keywords
+        const dbEmployees = await tx.employee.findMany({
+          where: { tenantId, deletedAt: null },
+          include: { user: true, department: true },
+        });
 
-        // Perform Sub-200ms Groq GenAI Multi-Task Extraction
-        aiResult = await GroqService.classifyComplaint(complaintText, deptContexts);
-
-        // Fallback Check: If AI confidence is below threshold (< 0.40), flag for Admin manual assignment
-        if (!aiResult || aiResult.confidence < 0.4) {
+        if (dbEmployees.length === 0) {
           isConfidentMatch = false;
-          aiResult.reasoning = `Low AI routing confidence (${(aiResult?.confidence * 100 || 0).toFixed(0)}%). Flagged for Admin manual assignment.`;
+          aiResult = {
+            priority: "MEDIUM",
+            sentiment: "NEUTRAL",
+            summary: title,
+            suggested_reply: "Thank you for reaching out. An administrator will review your ticket shortly.",
+            reasoning: "No active employees configured for Employee-Centric routing. Ticket placed in Admin Manual Assignment queue.",
+            confidence: 0.0,
+            department_id: null,
+          };
+        } else {
+          // Build role-based routing context for each employee
+          const empContexts: DepartmentRoutingContext[] = dbEmployees.map((e) => {
+            const roleTitle = e.title || e.name || e.user?.name || "Support Specialist";
+            const kwText = e.keywords && e.keywords.length > 0 ? e.keywords.join(", ") : roleTitle;
+            return {
+              id: e.id,
+              code: `emp_${e.id.replace(/-/g, "_")}`,
+              name: `${e.user?.name || e.name || "Agent"} (${roleTitle})`,
+              description: `Role/Title: ${roleTitle}. Specialization Keywords: ${kwText}`,
+            };
+          });
+
+          aiResult = await GroqService.classifyComplaint(complaintText, empContexts);
+
+          if (!aiResult || aiResult.confidence < 0.4) {
+            isConfidentMatch = false;
+            aiResult.reasoning = `Low AI routing confidence (${(aiResult?.confidence * 100 || 0).toFixed(0)}%). Flagged for Admin manual assignment.`;
+          } else {
+            targetEmployee = dbEmployees.find((e) => e.id === aiResult.department_id) || dbEmployees[0];
+          }
+        }
+      } else {
+        // DEPARTMENT-CENTRIC ROUTING MODE: Route to department, then select least-loaded agent
+        const dbDepartments = await tx.department.findMany({
+          where: { tenantId, deletedAt: null },
+        });
+
+        if (dbDepartments.length === 0) {
+          isConfidentMatch = false;
+          aiResult = {
+            priority: "MEDIUM",
+            sentiment: "NEUTRAL",
+            summary: title,
+            suggested_reply: "Thank you for reaching out. An administrator will review your ticket shortly.",
+            reasoning: "No active departments configured. Ticket placed in Admin Manual Assignment queue.",
+            confidence: 0.0,
+            department_id: null,
+          };
+        } else {
+          const deptContexts: DepartmentRoutingContext[] = dbDepartments.map((d) => ({
+            id: d.id,
+            code: d.name.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+            name: d.name,
+            description: d.keywords && d.keywords.length > 0 ? d.keywords.join(", ") : d.name,
+          }));
+
+          aiResult = await GroqService.classifyComplaint(complaintText, deptContexts);
+
+          if (!aiResult || aiResult.confidence < 0.4) {
+            isConfidentMatch = false;
+            aiResult.reasoning = `Low AI routing confidence (${(aiResult?.confidence * 100 || 0).toFixed(0)}%). Flagged for Admin manual assignment.`;
+          } else {
+            targetDepartment = dbDepartments.find((d) => d.id === aiResult.department_id) || dbDepartments[0];
+          }
         }
       }
 
@@ -101,45 +148,71 @@ export const createComplaint = async (req: Request, res: Response) => {
       const complaintId = complaint.id;
       let assignmentData: any = null;
 
-      if (isConfidentMatch && dbDepartments.length > 0) {
-        const targetDepartment = dbDepartments.find((d) => d.id === aiResult.department_id) || dbDepartments[0];
-
-        // Dynamic Workload Balancing Algorithm: Route to least-loaded staff member in department
-        const selectedEmployee = await WorkloadService.selectLeastLoadedEmployee(
-          tx,
-          tenantId,
-          targetDepartment.id
-        );
-
-        if (selectedEmployee) {
+      if (isConfidentMatch) {
+        if (routingMode === "EMPLOYEE" && targetEmployee) {
+          // Direct Employee Assignment
           await tx.assignment.create({
             data: {
               tenantId,
               complaintId,
               assigneeType: "EMPLOYEE",
-              employeeId: selectedEmployee.id,
-              departmentId: targetDepartment.id,
+              employeeId: targetEmployee.id,
+              departmentId: targetEmployee.departmentId,
             },
           });
 
+          await WorkloadService.syncEmployeeLoad(tx, targetEmployee.id);
+
           assignmentData = {
             assignee_type: "EMPLOYEE",
-            employee_id: selectedEmployee.id,
-            employee_userId: selectedEmployee.userId,
-            employee_name: selectedEmployee.user?.name || selectedEmployee.name,
-            employee_email: selectedEmployee.user?.email,
-            department_id: targetDepartment.id,
-            department_name: targetDepartment.name,
+            employee_id: targetEmployee.id,
+            employee_userId: targetEmployee.userId,
+            employee_name: targetEmployee.user?.name || targetEmployee.name,
+            employee_email: targetEmployee.user?.email,
+            employee_title: targetEmployee.title || null,
+            department_id: targetEmployee.departmentId || null,
+            department_name: targetEmployee.department?.name || null,
           };
-        } else {
-          assignmentData = await WorkloadService.handleUnassignedDepartmentState(
+        } else if (routingMode === "DEPARTMENT" && targetDepartment) {
+          // Department Assignment with Least-Loaded Employee Selection
+          const selectedEmployee = await WorkloadService.selectLeastLoadedEmployee(
             tx,
             tenantId,
-            targetDepartment.id,
-            complaintId
+            targetDepartment.id
           );
-          if (assignmentData.department_id) {
-            assignmentData.department_name = targetDepartment.name;
+
+          if (selectedEmployee) {
+            await tx.assignment.create({
+              data: {
+                tenantId,
+                complaintId,
+                assigneeType: "EMPLOYEE",
+                employeeId: selectedEmployee.id,
+                departmentId: targetDepartment.id,
+              },
+            });
+
+            await WorkloadService.syncEmployeeLoad(tx, selectedEmployee.id);
+
+            assignmentData = {
+              assignee_type: "EMPLOYEE",
+              employee_id: selectedEmployee.id,
+              employee_userId: selectedEmployee.userId,
+              employee_name: selectedEmployee.user?.name || selectedEmployee.name,
+              employee_email: selectedEmployee.user?.email,
+              department_id: targetDepartment.id,
+              department_name: targetDepartment.name,
+            };
+          } else {
+            assignmentData = await WorkloadService.handleUnassignedDepartmentState(
+              tx,
+              tenantId,
+              targetDepartment.id,
+              complaintId
+            );
+            if (assignmentData.department_id) {
+              assignmentData.department_name = targetDepartment.name;
+            }
           }
         }
       }
