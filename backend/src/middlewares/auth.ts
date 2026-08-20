@@ -1,32 +1,5 @@
-import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-import { config } from "../config/config";
+import { authenticateJwt, CustomJwtPayload } from "./role.middleware";
 
-interface JwtPayload {
-  userId: string;
-  tenantId: string;
-}
+export type JwtPayload = CustomJwtPayload;
+export const authmiddleware = authenticateJwt;
 
-export const authmiddleware = (req: Request, res: Response, next: NextFunction) => {
-  const token =
-    req.cookies?.token ||
-    req.headers.authorization?.split(" ")[1];
-
-  if (!token) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  try {
-    const decoded = jwt.verify(token, config.JWT_SECRET) as JwtPayload;
-
-    req.user = {
-      userId: decoded.userId,
-      tenantId: decoded.tenantId,
-    };
-
-    next();
-  } catch {
-    res.status(401).json({ message: "Invalid token" });
-  }
-};

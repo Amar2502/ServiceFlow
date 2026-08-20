@@ -7,6 +7,7 @@ export interface CustomJwtPayload {
   userId: string;
   tenantId: string;
   role: string;
+  employeeId?: string;
   name?: string;
   email?: string;
 }
@@ -38,6 +39,7 @@ export const authenticateJwt = (req: Request, res: Response, next: NextFunction)
       userId: decoded.userId,
       tenantId: decoded.tenantId,
       role: decoded.role ? decoded.role.toUpperCase() : "AGENT",
+      employeeId: decoded.employeeId,
       name: decoded.name,
       email: decoded.email,
     };

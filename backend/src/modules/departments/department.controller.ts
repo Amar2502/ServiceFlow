@@ -234,6 +234,12 @@ export const deleteDepartment = async (req: Request, res: Response) => {
         data: { departmentId: null },
       });
 
+      // 2b. Clear departmentId on pending/unused invitation tokens to maintain referential integrity
+      await tx.invite.updateMany({
+        where: { departmentId, tenantId, used: false },
+        data: { departmentId: null },
+      });
+
       // 3. Find active assignments mapped to this department
       const activeAssignments = await tx.assignment.findMany({
         where: {

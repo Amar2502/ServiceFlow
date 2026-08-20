@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { db } from "../../config/db";
 import { InviteService } from "./invite.service";
 import { config } from "../../config/config";
 import jwt from "jsonwebtoken";
@@ -78,6 +79,8 @@ export const loginWithInvite = async (req: Request, res: Response) => {
 
     res.cookie("token", authtoken, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -102,5 +105,48 @@ export const loginWithInvite = async (req: Request, res: Response) => {
       console.error("[LoginWithInvite Error]:", err);
       res.status(500).json({ message: "Internal server error redeeming invitation" });
     }
+  }
+};
+
+export const getInviteTokenDetails = async (req: Request, res: Response) => {
+  const { token } = req.params as { token: string };
+
+  if (!token) {
+    res.status(400).json({ valid: false, message: "Token parameter is required" });
+    return;
+  }
+
+  try {
+    const invite = await InviteService.getInviteByToken(token);
+
+    if (!invite) {
+      res.status(404).json({ valid: false, message: "Invalid invitation token" });
+      return;
+    }
+
+    if (invite.used) {
+      res.status(400).json({ valid: false, message: "This invitation link has already been redeemed" });
+      return;
+    }
+
+    if (invite.expiresAt < new Date()) {
+      res.status(400).json({ valid: false, message: "This invitation link has expired" });
+      return;
+    }
+
+    const tenant = await db.tenant.findUnique({
+      where: { id: invite.tenantId },
+      select: { name: true },
+    });
+
+    res.status(200).json({
+      valid: true,
+      role: invite.role,
+      tenantName: tenant?.name || "Organization",
+      expiresAt: invite.expiresAt,
+    });
+  } catch (err) {
+    console.error("[GetInviteTokenDetails Error]:", err);
+    res.status(500).json({ valid: false, message: "Internal server error validating invitation" });
   }
 };

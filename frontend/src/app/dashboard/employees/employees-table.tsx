@@ -128,7 +128,7 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
     }
     setLoading(true);
     try {
-      await api.patch("/api/employees/map-to-department", {
+      await api.patch("/api/employees/map-department", {
         employeeId: selectedEmployee.id,
         departmentId: formData.departmentId,
       });

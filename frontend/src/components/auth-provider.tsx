@@ -1,79 +1,42 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  clearSession,
-  loadSession,
-  saveSession,
-  type SessionUser,
-} from "@/lib/session";
-
-type AuthContextValue = {
-  user: SessionUser | null;
-  ready: boolean;
-  setUser: (u: SessionUser | null) => void;
-  login: (u: SessionUser) => void;
-  logout: () => void;
-};
-
-const AuthContext = createContext<AuthContextValue | null>(null);
+import { useAuthStore } from "@/store/useAuthStore";
+import type { SessionUser } from "@/lib/session";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUserState] = useState<SessionUser | null>(null);
-  const [ready, setReady] = useState(false);
-  const router = useRouter();
+  const initialize = useAuthStore((state) => state.initialize);
 
   useEffect(() => {
-    setUserState(loadSession());
-    setReady(true);
-  }, []);
+    initialize();
+  }, [initialize]);
 
-  const setUser = useCallback((u: SessionUser | null) => {
-    if (u) saveSession(u);
-    else clearSession();
-    setUserState(u);
-  }, []);
-
-  const login = useCallback(
-    (u: SessionUser) => {
-      saveSession(u);
-      setUserState(u);
-    },
-    []
-  );
-
-  const logout = useCallback(() => {
-    clearSession();
-    setUserState(null);
-    router.push("/login");
-  }, [router]);
-
-  const value = useMemo(
-    () => ({
-      user,
-      ready,
-      setUser,
-      login,
-      logout,
-    }),
-    [user, ready, setUser, login, logout]
-  );
-
-  return (
-    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-  );
+  return <>{children}</>;
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+  const user = useAuthStore((state) => state.user);
+  const ready = useAuthStore((state) => state.ready);
+  const status = useAuthStore((state) => state.status);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const setUser = useAuthStore((state) => state.setUser);
+  const login = useAuthStore((state) => state.login);
+  const logoutStore = useAuthStore((state) => state.logout);
+  const router = useRouter();
+
+  const logout = useCallback(() => {
+    logoutStore();
+    router.push("/login");
+  }, [logoutStore, router]);
+
+  return {
+    user,
+    ready,
+    status,
+    isAuthenticated,
+    setUser,
+    login,
+    logout,
+  };
 }

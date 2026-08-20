@@ -10,4 +10,5 @@ export const RegisterSchema = z.object({
 export const LoginSchema = z.object({
   email: z.string().email("Invalid email address format"),
   password: z.string().min(1, "Password is required"),
+  tenantId: z.string().uuid("Invalid tenant ID format").optional(),
 });

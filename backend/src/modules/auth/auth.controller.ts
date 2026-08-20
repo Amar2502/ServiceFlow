@@ -30,16 +30,16 @@ export const register = async (req: Request, res: Response) => {
   try {
     const passwordHash = await hashPassword(password);
 
-    const { user, employee } = await db.$transaction(async (tx) => {
+    const { user, employee, tenant } = await db.$transaction(async (tx) => {
       // Create new tenant organization
-      const tenant = await tx.tenant.create({
+      const tenantRecord = await tx.tenant.create({
         data: { name: tenantName },
       });
 
       // Create Admin user within the new tenant organization (scoped to tenant.id)
       const userRecord = await tx.user.create({
         data: {
-          tenantId: tenant.id,
+          tenantId: tenantRecord.id,
           name,
           email: normalizedEmail,
           passwordHash,
@@ -49,14 +49,14 @@ export const register = async (req: Request, res: Response) => {
 
       const employeeRecord = await tx.employee.create({
         data: {
-          tenantId: tenant.id,
+          tenantId: tenantRecord.id,
           userId: userRecord.id,
           name,
           title: "Tenant Administrator",
         },
       });
 
-      return { user: userRecord, employee: employeeRecord };
+      return { user: userRecord, employee: employeeRecord, tenant: tenantRecord };
     });
 
     const token = jwt.sign(
@@ -70,13 +70,20 @@ export const register = async (req: Request, res: Response) => {
       { expiresIn: "30d" }
     );
 
-    res.cookie("token", token, { httpOnly: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(201).json({
       userId: user.id,
       tenantId: user.tenantId,
       employeeId: employee.id,
       role: user.role,
+      routingMode: tenant.routingMode || "DEPARTMENT",
+      tenantName: tenant.name,
       message: "Organization registered successfully",
     });
   } catch (err) {
@@ -127,6 +134,10 @@ export const login = async (req: Request, res: Response) => {
 
     const user = authenticatedUser;
 
+    const tenant = await db.tenant.findUnique({
+      where: { id: user.tenantId },
+    });
+
     // Retrieve or auto-create active Employee profile for the user in this tenant
     let employee = await db.employee.findFirst({
       where: { userId: user.id, tenantId: user.tenantId, deletedAt: null },
@@ -154,17 +165,75 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: "30d" }
     );
 
-    res.cookie("token", token, { httpOnly: true, maxAge: 30 * 24 * 60 * 60 * 1000 });
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(200).json({
       userId: user.id,
       tenantId: user.tenantId,
       employeeId: employee.id,
       role: user.role,
+      routingMode: tenant?.routingMode || "DEPARTMENT",
+      tenantName: tenant?.name || "",
       message: "Login successful",
     });
   } catch (err) {
     console.error("[Login Error]:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getMeController = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const tenantId = req.user?.tenantId;
+
+  if (!userId || !tenantId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const user = await db.user.findFirst({
+      where: { id: userId, tenantId },
+      include: { tenant: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    let employee = await db.employee.findFirst({
+      where: { userId: user.id, tenantId: user.tenantId, deletedAt: null },
+    });
+
+    if (!employee && user.role === "ADMIN") {
+      employee = await db.employee.create({
+        data: {
+          tenantId: user.tenantId,
+          userId: user.id,
+          name: user.name || "Tenant Admin",
+          title: "Tenant Administrator",
+        },
+      });
+    }
+
+    res.status(200).json({
+      userId: user.id,
+      tenantId: user.tenantId,
+      role: user.role,
+      name: user.name,
+      email: user.email,
+      employeeId: employee?.id || null,
+      routingMode: user.tenant?.routingMode || "DEPARTMENT",
+      tenantName: user.tenant?.name || "",
+    });
+  } catch (err) {
+    console.error("[getMeController Error]:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 };

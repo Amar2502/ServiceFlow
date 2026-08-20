@@ -21,6 +21,9 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { useEffect, useMemo, useState } from "react";
 import { OnboardingModal } from "@/components/onboarding-modal";
+import { NotificationBell } from "@/components/notification-bell";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useSocketNotifications } from "@/hooks/useSocketNotifications";
 import {
   Sheet,
   SheetContent,
@@ -101,8 +104,12 @@ function NavLinks({
 
   const items = useMemo(() => {
     if (!user) return [];
-    if (user.role === "ADMIN") return navItems;
-    return navItems.filter((i) => !i.adminOnly);
+    let list = user.role === "ADMIN" ? navItems : navItems.filter((i) => !i.adminOnly);
+    // If routing strategy is EMPLOYEE, don't show Department Routing navigation
+    if (user.routingMode === "EMPLOYEE") {
+      list = list.filter((item) => item.href !== "/dashboard/departments");
+    }
+    return list;
   }, [user]);
 
   return (
@@ -142,6 +149,9 @@ export default function DashboardLayout({
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+
+  // Initialize Socket.io real-time notifications for active / inactive users
+  useSocketNotifications();
 
   useEffect(() => {
     if (!ready) return;
@@ -221,35 +231,57 @@ export default function DashboardLayout({
           </div>
           <span className="font-bold truncate text-sm">ServiceFlow</span>
         </div>
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="bg-white border-[#dfc7ae]">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="bg-[#EED9C4] border-[#dfc7ae] w-72">
-            <SheetHeader>
-              <SheetTitle className="text-left text-sm">Navigation Menu</SheetTitle>
-            </SheetHeader>
-            <nav className="mt-4">
-              <NavLinks onNavigate={() => setMobileOpen(false)} />
-            </nav>
-            <Button
-              variant="ghost"
-              className="mt-8 w-full justify-start hover:bg-red-600/90 hover:text-white text-xs"
-              onClick={() => {
-                setMobileOpen(false);
-                logout();
-              }}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Log out
-            </Button>
-          </SheetContent>
-        </Sheet>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <NotificationBell />
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="bg-white border-[#dfc7ae]">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="bg-[#EED9C4] border-[#dfc7ae] w-72">
+              <SheetHeader>
+                <SheetTitle className="text-left text-sm">Navigation Menu</SheetTitle>
+              </SheetHeader>
+              <nav className="mt-4">
+                <NavLinks onNavigate={() => setMobileOpen(false)} />
+              </nav>
+              <Button
+                variant="ghost"
+                className="mt-8 w-full justify-start hover:bg-red-600/90 hover:text-white text-xs"
+                onClick={() => {
+                  setMobileOpen(false);
+                  logout();
+                }}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Log out
+              </Button>
+            </SheetContent>
+          </Sheet>
+        </div>
       </header>
 
-      <main className="flex-1 overflow-auto p-4 md:p-8">{children}</main>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="hidden md:flex items-center justify-between border-b border-[#dfc7ae] bg-[#EED9C4]/40 px-8 py-2.5">
+          <div className="flex items-center gap-3 text-xs text-[#6b5344] font-medium">
+            <span>
+              Workspace Tenant ID: <span className="font-mono bg-[#dfc7ae]/40 px-2 py-0.5 rounded text-[#3d2a1c]">{user.tenantId}</span>
+            </span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#3d2a1c] text-[#EED9C4] gap-1">
+              Strategy: {user.routingMode === "EMPLOYEE" ? "EMPLOYEE (Direct Agent)" : "DEPARTMENT (Workload)"}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <NotificationBell />
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-auto p-4 md:p-8">{children}</main>
+      </div>
     </div>
   );
 }

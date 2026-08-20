@@ -72,3 +72,32 @@ export const updateTenantRoutingMode = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const getTenantDetails = async (req: Request, res: Response) => {
+  const authTenantId = req.user?.tenantId;
+
+  if (!authTenantId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const tenant = await db.tenant.findUnique({
+      where: { id: authTenantId },
+      select: { id: true, name: true, routingMode: true },
+    });
+
+    if (!tenant) {
+      res.status(404).json({ message: "Tenant not found" });
+      return;
+    }
+
+    res.status(200).json({
+      id: tenant.id,
+      name: tenant.name,
+      routingMode: tenant.routingMode,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

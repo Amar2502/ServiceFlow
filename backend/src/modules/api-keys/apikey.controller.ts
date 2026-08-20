@@ -17,11 +17,13 @@ export const generateApiKey = async (req: Request, res: Response) => {
 
   const apiKey = generatehexKey();
   const keyHash = hashApiKey(apiKey);
+  const keyPrefix = `${apiKey.substring(0, 12)}...`;
 
   try {
     const result = await db.apiKey.create({
       data: {
         keyHash,
+        keyPrefix,
         name,
         tenantId,
       },
@@ -33,7 +35,7 @@ export const generateApiKey = async (req: Request, res: Response) => {
       key: apiKey,
       apiKey: apiKey,
       name,
-      prefix: apiKey.substring(0, 8),
+      prefix: keyPrefix,
       message: "API key generated successfully",
     });
   } catch (err) {
@@ -90,7 +92,7 @@ export const getApiKeys = async (req: Request, res: Response) => {
       id: k.id,
       tenant_id: k.tenantId,
       name: k.name || "API Key",
-      key_prefix: k.keyHash ? `sk_live_${k.keyHash.substring(0, 6)}...` : "sk_live_...",
+      key_prefix: k.keyPrefix || (k.keyHash ? `sf_live_${k.keyHash.substring(0, 6)}...` : "sf_live_..."),
       last_used_at: k.lastUsedAt,
       created_at: k.createdAt,
     }));

@@ -16,6 +16,9 @@ import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+import { Badge } from "@/components/ui/badge";
+import { Sparkles } from "lucide-react";
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState({
@@ -153,8 +156,14 @@ export default function DashboardPage() {
     <div className="flex-1 overflow-auto">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Console</h1>
-          <p className="text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">Console</h1>
+            <Badge className={user?.routingMode === "EMPLOYEE" ? "bg-purple-100 text-purple-900 border-purple-300 font-mono text-[11px]" : "bg-amber-100 text-amber-900 border-amber-300 font-mono text-[11px]"}>
+              <Sparkles className="h-3 w-3 mr-1" />
+              Strategy: {user?.routingMode === "EMPLOYEE" ? "EMPLOYEE (Direct Agent)" : "DEPARTMENT (Workload)"}
+            </Badge>
+          </div>
+          <p className="text-muted-foreground text-sm mt-1">
             Tenant overview — wire your apps to the routing API, then operate here.
           </p>
         </div>

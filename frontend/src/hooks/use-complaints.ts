@@ -156,9 +156,17 @@ export function useSendResolutionEmail() {
       ),
 
     onSuccess: (data) => {
-      toast.success("Complaint resolved & official email dispatched to customer!");
+      if (data.email_sent) {
+        toast.success("Complaint resolved & official email dispatched to customer!");
+      } else {
+        toast.warning(
+          "Complaint marked as resolved, but email notification could not be delivered (RESEND_API_KEY unconfigured).",
+          { duration: 6000 }
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["complaints"] });
       queryClient.invalidateQueries({ queryKey: ["complaints", data.complaintId] });
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
     },
 
     onError: (err: any) => {

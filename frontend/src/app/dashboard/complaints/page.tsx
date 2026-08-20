@@ -213,10 +213,14 @@ export default function ComplaintsPage() {
                 setSelectedComplaint(complaint);
                 setShowMessageDialog(true);
               }}
-              onAssignTicket={(complaint) => {
-                setSelectedComplaint(complaint);
-                setShowAssignDialog(true);
-              }}
+              onAssignTicket={
+                user?.role === "ADMIN"
+                  ? (complaint) => {
+                      setSelectedComplaint(complaint);
+                      setShowAssignDialog(true);
+                    }
+                  : undefined
+              }
               onDelete={
                 user?.role === "ADMIN"
                   ? (complaint) => {

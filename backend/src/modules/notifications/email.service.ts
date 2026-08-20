@@ -30,7 +30,7 @@ export interface SlaBreachEmailOptions {
 }
 
 export class EmailService {
-  private static defaultFrom = "ServiceFlow Support <notifications@serviceflow.io>";
+  private static defaultFrom = process.env.RESEND_FROM_EMAIL || "ServiceFlow Support <notifications@serviceflow.io>";
 
   /**
    * [1] Automated Ingestion Email Notification:

@@ -62,6 +62,7 @@ export class WorkloadService {
   /**
    * Dynamic Workload Balancer Algorithm:
    * Selects the active employee in the department with the lowest REAL-TIME active ticket count.
+   * Eliminates premature counter drift by relying on atomic syncEmployeeLoad after assignment creation.
    */
   static async selectLeastLoadedEmployee(
     tx: Prisma.TransactionClient,
@@ -83,7 +84,7 @@ export class WorkloadService {
       return null;
     }
 
-    // Calculate real-time active load per employee
+    // Calculate real-time active load per employee from assignments table
     const employeesWithLoad = await Promise.all(
       employees.map(async (emp) => {
         const activeCount = await tx.assignment.count({
@@ -102,12 +103,6 @@ export class WorkloadService {
     // Sort ascending by real-time active load
     employeesWithLoad.sort((a, b) => a.activeLoad - b.activeLoad);
     const selected = employeesWithLoad[0];
-
-    // Update load counter with new ticket
-    await tx.employee.update({
-      where: { id: selected.employee.id },
-      data: { load: selected.activeLoad + 1 },
-    });
 
     return selected.employee;
   }
@@ -173,27 +168,22 @@ export class WorkloadService {
     });
 
     if (adminEmployee) {
-      if (oldAssignments.length === 0) {
-        await tx.assignment.create({
-          data: {
-            tenantId,
-            complaintId,
-            assigneeType: "EMPLOYEE",
-            employeeId: adminEmployee.id,
-            departmentId: validDepartmentId,
-          },
-        });
-      } else {
-        await tx.assignment.updateMany({
-          where: { complaintId },
-          data: {
-            assigneeType: "EMPLOYEE",
-            employeeId: adminEmployee.id,
-            departmentId: validDepartmentId,
-            assignedAt: new Date(),
-          },
-        });
-      }
+      await tx.assignment.upsert({
+        where: { complaintId },
+        create: {
+          tenantId,
+          complaintId,
+          assigneeType: "EMPLOYEE",
+          employeeId: adminEmployee.id,
+          departmentId: validDepartmentId,
+        },
+        update: {
+          assigneeType: "EMPLOYEE",
+          employeeId: adminEmployee.id,
+          departmentId: validDepartmentId,
+          assignedAt: new Date(),
+        },
+      });
 
       for (const old of oldAssignments) {
         if (old.employeeId && old.employeeId !== adminEmployee.id) {
@@ -215,27 +205,22 @@ export class WorkloadService {
     }
 
     // 2. Fallback to UNASSIGNED_QUEUE
-    if (oldAssignments.length === 0) {
-      await tx.assignment.create({
-        data: {
-          tenantId,
-          complaintId,
-          assigneeType: "DEPARTMENT",
-          departmentId: validDepartmentId,
-          employeeId: null,
-        },
-      });
-    } else {
-      await tx.assignment.updateMany({
-        where: { complaintId },
-        data: {
-          assigneeType: "DEPARTMENT",
-          departmentId: validDepartmentId,
-          employeeId: null,
-          assignedAt: new Date(),
-        },
-      });
-    }
+    await tx.assignment.upsert({
+      where: { complaintId },
+      create: {
+        tenantId,
+        complaintId,
+        assigneeType: "DEPARTMENT",
+        departmentId: validDepartmentId,
+        employeeId: null,
+      },
+      update: {
+        assigneeType: "DEPARTMENT",
+        departmentId: validDepartmentId,
+        employeeId: null,
+        assignedAt: new Date(),
+      },
+    });
 
     for (const old of oldAssignments) {
       if (old.employeeId) {

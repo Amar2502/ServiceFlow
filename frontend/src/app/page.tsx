@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +32,14 @@ const apiSnippet = `curl -X POST ${API_BASE}/api/complaints/create \\
   -d '{"title":"Refund stuck","customerName":"Ada","customerEmail":"ada@example.com"}'`;
 
 export default function HomePage() {
+  const router = useRouter();
+  const { user, ready } = useAuth();
+
+  useEffect(() => {
+    if (ready && user) {
+      router.replace("/dashboard");
+    }
+  }, [ready, user, router]);
   return (
     <div className="min-h-screen flex flex-col bg-[#0c0f14] text-zinc-100">
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0c0f14]/90 backdrop-blur-md">

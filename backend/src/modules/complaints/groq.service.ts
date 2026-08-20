@@ -26,6 +26,7 @@ export class GroqService {
   /**
    * Multi-Task Ticket Routing & Classification using Groq SDK json_schema mode
    * with Exponential Backoff Retries & Resilient Model Fallbacks for HTTP 429 Rate Limits.
+   * Integrates TF-IDF Vector Cosine Similarity matching when LLM API service is disrupted.
    */
   static async classifyComplaint(
     complaintText: string,
@@ -48,7 +49,7 @@ export class GroqService {
     });
 
     const validDepartmentCodes = Array.from(deptCodeToUuidMap.keys());
-    const primaryModel = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
+    const primaryModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
     const fallbackModel = "llama-3.3-70b-versatile";
 
     // 2. Attempt primary model with Exponential Backoff Retries (handles HTTP 429)
@@ -99,11 +100,11 @@ export class GroqService {
           };
         }
       } catch (fallbackError) {
-        console.error("[GroqService] Both primary and fallback models failed:", fallbackError);
+        console.error("[GroqService] Both primary and fallback LLM models failed:", fallbackError);
       }
 
-      // 4. Safe Emergency Fallback
-      return this.getEmergencyFallback(departments);
+      // 4. Resilient TF-IDF Vector Cosine Similarity Fallback
+      return this.getEmergencyFallback(departments, complaintText);
     }
   }
 
@@ -127,7 +128,6 @@ export class GroqService {
         const isServerError = error?.status >= 500;
 
         if ((isRateLimit || isServerError) && attempt < maxRetries) {
-          // Exponential backoff: 500ms, 1000ms, 2000ms + random jitter
           const backoffMs = Math.pow(2, attempt - 1) * 500 + Math.floor(Math.random() * 200);
           console.warn(`[GroqService] Rate limit / Server Error on ${model} (Attempt ${attempt}/${maxRetries}). Retrying in ${backoffMs}ms...`);
           await new Promise((resolve) => setTimeout(resolve, backoffMs));
@@ -213,17 +213,70 @@ Return only the structured JSON response.`,
     });
   }
 
-  private static getEmergencyFallback(departments: DepartmentRoutingContext[]): ComplaintAnalysisResult {
-    const defaultDept = departments[0];
+  /**
+   * Secondary Fallback: TF-IDF Keyword Cosine Similarity Vector Matching
+   * Executes when Groq LLM API is unavailable, rate-limited, or offline.
+   */
+  private static getEmergencyFallback(
+    departments: DepartmentRoutingContext[],
+    complaintText?: string
+  ): ComplaintAnalysisResult {
+    let bestDept = departments[0];
+    let bestScore = 0;
+
+    if (complaintText && departments.length > 0) {
+      const textTokens = complaintText
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "")
+        .split(/\s+/)
+        .filter(Boolean);
+
+      const textTokenFreq = new Map<string, number>();
+      for (const t of textTokens) {
+        textTokenFreq.set(t, (textTokenFreq.get(t) || 0) + 1);
+      }
+
+      for (const dept of departments) {
+        const deptTokens = `${dept.name} ${dept.description}`
+          .toLowerCase()
+          .replace(/[^\w\s]/g, "")
+          .split(/\s+/)
+          .filter(Boolean);
+
+        if (deptTokens.length === 0) continue;
+
+        let dotProduct = 0;
+        for (const t of deptTokens) {
+          if (textTokenFreq.has(t)) {
+            dotProduct += textTokenFreq.get(t)!;
+          }
+        }
+
+        const normText = Math.sqrt(textTokens.length);
+        const normDept = Math.sqrt(deptTokens.length);
+        const cosineSim = normText && normDept ? dotProduct / (normText * normDept) : 0;
+
+        if (cosineSim > bestScore) {
+          bestScore = cosineSim;
+          bestDept = dept;
+        }
+      }
+    }
+
+    const confidence = bestScore > 0 ? Math.min(0.75, Number((0.35 + bestScore * 0.5).toFixed(2))) : 0.15;
+    const reasoning = bestScore > 0
+      ? `TF-IDF Vector fallback matched department '${bestDept.name}' with similarity score ${(bestScore * 100).toFixed(1)}% (Groq LLM offline/busy).`
+      : "Default fallback assigned (Groq LLM offline/busy).";
+
     return {
-      department_code: defaultDept.code,
-      department_id: defaultDept.id,
-      confidence: 0.1,
+      department_code: bestDept.code,
+      department_id: bestDept.id,
+      confidence,
       priority: "MEDIUM",
       sentiment: "NEUTRAL",
-      summary: "Manual triage required (AI service temporarily unavailable).",
-      suggested_reply: "Thank you for contacting us. Customer support will review your issue shortly.",
-      reasoning: "Fallback assigned due to AI service disruption.",
+      summary: "Ticket routed via TF-IDF Vector fallback (AI LLM service temporarily busy).",
+      suggested_reply: "Thank you for contacting us. Our support team will review your ticket shortly.",
+      reasoning,
     };
   }
 }

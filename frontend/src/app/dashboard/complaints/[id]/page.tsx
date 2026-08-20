@@ -472,15 +472,17 @@ export default function ComplaintDetailPage({
                     <Edit className="h-3.5 w-3.5 mr-1.5 text-slate-600" />
                     Status
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-white border-[#dfc7ae] text-xs text-slate-800"
-                    onClick={() => setShowAssignDialog(true)}
-                  >
-                    <Building2 className="h-3.5 w-3.5 mr-1.5 text-amber-700" />
-                    {complaint.assignment ? "Reassign" : "Assign Ticket"}
-                  </Button>
+                  {user?.role === "ADMIN" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-white border-[#dfc7ae] text-xs text-slate-800"
+                      onClick={() => setShowAssignDialog(true)}
+                    >
+                      <Building2 className="h-3.5 w-3.5 mr-1.5 text-amber-700" />
+                      {complaint.assignment ? "Reassign" : "Assign Ticket"}
+                    </Button>
+                  )}
                   {complaint.status !== "resolved" && (
                     <Button
                       size="sm"

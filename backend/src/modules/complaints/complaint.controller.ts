@@ -172,6 +172,17 @@ export const createComplaint = async (req: Request, res: Response) => {
     // Real-Time Socket.io Event Emission
     ComplaintsSocket.emitTicketCreated(tenantId, responsePayload);
 
+    if (responsePayload.assignment?.employee_userId) {
+      ComplaintsSocket.emitTicketAssigned(responsePayload.assignment.employee_userId, {
+        complaintId: responsePayload.complaintId,
+        title: responsePayload.title,
+        priority: responsePayload.ai_triage?.priority || "MEDIUM",
+        customerName: responsePayload.customerName,
+        message: `New complaint assigned: #${responsePayload.complaintId.substring(0, 7)} - "${title}"`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     // Automated Ingestion Email Notification to Customer via Resend
     if (customerEmail) {
       EmailService.sendIngestionConfirmationEmail({
@@ -211,6 +222,15 @@ export const sendResolutionEmailController = async (req: Request, res: Response)
 
     if (!complaint || complaint.tenantId !== tenantId) {
       return res.status(404).json({ message: "Complaint not found" });
+    }
+
+    if (req.user?.role === "AGENT") {
+      const isAssignedToAgent = complaint.assignments.some(
+        (a) => a.employee?.userId === req.user?.userId
+      );
+      if (!isAssignedToAgent) {
+        return res.status(403).json({ message: "Forbidden: Agents can only send resolution emails for tickets assigned to them." });
+      }
     }
 
     if (!complaint.customerEmail) {
@@ -395,7 +415,30 @@ export const updateComplaintStatus = async (req: Request, res: Response) => {
 
   const tenantId = req.user?.tenantId;
 
+  if (!tenantId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
   try {
+    const existing = await db.complaint.findFirst({
+      where: { id: complaintId, tenantId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: "Complaint not found or access denied" });
+    }
+
+    if (req.user?.role === "AGENT") {
+      const activeAssignment = await db.assignment.findFirst({
+        where: { complaintId, tenantId },
+        include: { employee: true },
+      });
+      if (activeAssignment?.employee && activeAssignment.employee.userId !== req.user.userId) {
+        return res.status(403).json({ message: "Forbidden: Agents can only update status for tickets assigned to them." });
+      }
+    }
+
     const updated = await db.$transaction(async (tx) => {
       const complaint = await tx.complaint.update({
         where: { id: complaintId },
@@ -409,12 +452,10 @@ export const updateComplaintStatus = async (req: Request, res: Response) => {
       return complaint;
     });
 
-    if (tenantId) {
-      ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
-        id: updated.id,
-        status: updated.status,
-      });
-    }
+    ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
+      id: updated.id,
+      status: updated.status,
+    });
 
     return res.status(200).json({
       id: updated.id,
@@ -436,7 +477,20 @@ export const deleteComplaint = async (req: Request, res: Response) => {
 
   const tenantId = req.user?.tenantId;
 
+  if (!tenantId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
   try {
+    const existing = await db.complaint.findFirst({
+      where: { id: complaintId, tenantId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: "Complaint not found or access denied" });
+    }
+
     await db.$transaction(async (tx) => {
       await tx.complaint.update({
         where: { id: complaintId },
@@ -446,12 +500,10 @@ export const deleteComplaint = async (req: Request, res: Response) => {
       await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
     });
 
-    if (tenantId) {
-      ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
-        id: complaintId,
-        status: "deleted",
-      });
-    }
+    ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
+      id: complaintId,
+      status: "deleted",
+    });
 
     return res.status(200).json({ message: "Complaint soft-deleted successfully" });
   } catch (err) {
@@ -468,7 +520,20 @@ export const restoreComplaint = async (req: Request, res: Response) => {
 
   const tenantId = req.user?.tenantId;
 
+  if (!tenantId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
   try {
+    const existing = await db.complaint.findFirst({
+      where: { id: complaintId, tenantId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: "Complaint not found or access denied" });
+    }
+
     await db.$transaction(async (tx) => {
       await tx.complaint.update({
         where: { id: complaintId },
@@ -478,12 +543,10 @@ export const restoreComplaint = async (req: Request, res: Response) => {
       await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
     });
 
-    if (tenantId) {
-      ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
-        id: complaintId,
-        status: "open",
-      });
-    }
+    ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
+      id: complaintId,
+      status: "open",
+    });
 
     return res.status(200).json({ message: "Complaint restored successfully" });
   } catch (err) {
@@ -492,6 +555,10 @@ export const restoreComplaint = async (req: Request, res: Response) => {
 };
 
 export const assignComplaintToEmployee = async (req: Request, res: Response) => {
+  if (req.user?.role !== "ADMIN") {
+    return res.status(403).json({ message: "Forbidden: Only administrators are authorized to assign or reassign tickets." });
+  }
+
   const { complaintId, employeeId } = req.body as { complaintId: string; employeeId: string };
 
   if (!complaintId || !employeeId) {
@@ -504,38 +571,45 @@ export const assignComplaintToEmployee = async (req: Request, res: Response) => 
   }
 
   try {
-    const employee = await db.employee.findUnique({
-      where: { id: employeeId },
-      select: { id: true, departmentId: true },
+    // Validate target employee belongs to tenant
+    const employee = await db.employee.findFirst({
+      where: { id: employeeId, tenantId, deletedAt: null },
+      select: { id: true, userId: true, departmentId: true },
     });
 
     if (!employee) {
-      return res.status(404).json({ message: "Employee not found" });
+      return res.status(404).json({ message: "Employee not found or access denied" });
+    }
+
+    // Validate complaint belongs to tenant
+    const existingComplaint = await db.complaint.findFirst({
+      where: { id: complaintId, tenantId, deletedAt: null },
+      select: { id: true, title: true, priority: true, customerName: true },
+    });
+
+    if (!existingComplaint) {
+      return res.status(404).json({ message: "Complaint not found or access denied" });
     }
 
     await db.$transaction(async (tx) => {
-      const oldAssignments = await tx.assignment.findMany({ where: { complaintId } });
+      const oldAssignments = await tx.assignment.findMany({ where: { complaintId, tenantId } });
 
-      if (oldAssignments.length === 0) {
-        await tx.assignment.create({
-          data: {
-            tenantId,
-            complaintId,
-            assigneeType: "EMPLOYEE",
-            employeeId,
-            departmentId: employee.departmentId,
-          },
-        });
-      } else {
-        await tx.assignment.updateMany({
-          where: { complaintId },
-          data: {
-            employeeId,
-            departmentId: employee.departmentId,
-            assigneeType: "EMPLOYEE",
-          },
-        });
-      }
+      await tx.assignment.upsert({
+        where: { complaintId },
+        create: {
+          tenantId,
+          complaintId,
+          assigneeType: "EMPLOYEE",
+          employeeId,
+          departmentId: employee.departmentId,
+        },
+        update: {
+          employeeId,
+          departmentId: employee.departmentId,
+          assigneeType: "EMPLOYEE",
+          assignedAt: new Date(),
+        },
+      });
 
       for (const old of oldAssignments) {
         if (old.employeeId && old.employeeId !== employeeId) {
@@ -552,6 +626,15 @@ export const assignComplaintToEmployee = async (req: Request, res: Response) => 
       employeeId,
     });
 
+    ComplaintsSocket.emitTicketAssigned(employee.userId, {
+      complaintId,
+      title: existingComplaint.title,
+      priority: existingComplaint.priority,
+      customerName: existingComplaint.customerName,
+      message: `Complaint #${complaintId.substring(0, 7)} assigned to you: "${existingComplaint.title}"`,
+      timestamp: new Date().toISOString(),
+    });
+
     return res.status(200).json({ message: "Complaint assigned directly to employee successfully" });
   } catch (err) {
     console.error("AssignToEmployee error:", err);
@@ -560,6 +643,10 @@ export const assignComplaintToEmployee = async (req: Request, res: Response) => 
 };
 
 export const assignComplaintToDepartment = async (req: Request, res: Response) => {
+  if (req.user?.role !== "ADMIN") {
+    return res.status(403).json({ message: "Forbidden: Only administrators are authorized to assign or reassign tickets." });
+  }
+
   const { complaintId, departmentId } = req.body as { complaintId: string; departmentId: string };
 
   if (!complaintId || !departmentId) {
@@ -572,55 +659,70 @@ export const assignComplaintToDepartment = async (req: Request, res: Response) =
   }
 
   try {
+    // Validate target department belongs to tenant
+    const department = await db.department.findFirst({
+      where: { id: departmentId, tenantId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!department) {
+      return res.status(404).json({ message: "Department not found or access denied" });
+    }
+
+    // Validate complaint belongs to tenant
+    const existingComplaint = await db.complaint.findFirst({
+      where: { id: complaintId, tenantId, deletedAt: null },
+      select: { id: true, title: true, priority: true, customerName: true },
+    });
+
+    if (!existingComplaint) {
+      return res.status(404).json({ message: "Complaint not found or access denied" });
+    }
+
+    let assignedEmployeeUserId: string | null = null;
+
     await db.$transaction(async (tx) => {
-      const oldAssignments = await tx.assignment.findMany({ where: { complaintId } });
+      const oldAssignments = await tx.assignment.findMany({ where: { complaintId, tenantId } });
 
       // Automatically select the least-loaded employee in the chosen department
       const leastLoaded = await WorkloadService.selectLeastLoadedEmployee(tx, tenantId, departmentId);
 
       if (leastLoaded) {
-        if (oldAssignments.length === 0) {
-          await tx.assignment.create({
-            data: {
-              tenantId,
-              complaintId,
-              assigneeType: "EMPLOYEE",
-              employeeId: leastLoaded.id,
-              departmentId,
-            },
-          });
-        } else {
-          await tx.assignment.updateMany({
-            where: { complaintId },
-            data: {
-              departmentId,
-              employeeId: leastLoaded.id,
-              assigneeType: "EMPLOYEE",
-            },
-          });
-        }
+        assignedEmployeeUserId = leastLoaded.userId;
+        await tx.assignment.upsert({
+          where: { complaintId },
+          create: {
+            tenantId,
+            complaintId,
+            assigneeType: "EMPLOYEE",
+            employeeId: leastLoaded.id,
+            departmentId,
+          },
+          update: {
+            departmentId,
+            employeeId: leastLoaded.id,
+            assigneeType: "EMPLOYEE",
+            assignedAt: new Date(),
+          },
+        });
         await WorkloadService.syncEmployeeLoad(tx, leastLoaded.id);
       } else {
-        if (oldAssignments.length === 0) {
-          await tx.assignment.create({
-            data: {
-              tenantId,
-              complaintId,
-              assigneeType: "DEPARTMENT",
-              departmentId,
-              employeeId: null,
-            },
-          });
-        } else {
-          await tx.assignment.updateMany({
-            where: { complaintId },
-            data: {
-              departmentId,
-              employeeId: null,
-              assigneeType: "DEPARTMENT",
-            },
-          });
-        }
+        await tx.assignment.upsert({
+          where: { complaintId },
+          create: {
+            tenantId,
+            complaintId,
+            assigneeType: "DEPARTMENT",
+            departmentId,
+            employeeId: null,
+          },
+          update: {
+            departmentId,
+            employeeId: null,
+            assigneeType: "DEPARTMENT",
+            assignedAt: new Date(),
+          },
+        });
       }
 
       for (const old of oldAssignments) {
@@ -635,6 +737,17 @@ export const assignComplaintToDepartment = async (req: Request, res: Response) =
       assigneeType: "DEPARTMENT",
       departmentId,
     });
+
+    if (assignedEmployeeUserId) {
+      ComplaintsSocket.emitTicketAssigned(assignedEmployeeUserId, {
+        complaintId,
+        title: existingComplaint.title,
+        priority: existingComplaint.priority,
+        customerName: existingComplaint.customerName,
+        message: `Complaint #${complaintId.substring(0, 7)} routed to you via department load balancing: "${existingComplaint.title}"`,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     return res.status(200).json({ message: "Complaint assigned to department & routed to minimum-loaded staff member" });
   } catch (err) {

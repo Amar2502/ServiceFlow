@@ -81,9 +81,13 @@ export class AnalyticsService {
       item.avgHours = item.count > 0 ? Number((item.totalHours / item.count).toFixed(1)) : 0;
     });
 
-    // 3. SLA Compliance Rate (% of tickets resolved without breach)
-    const breachedCount = complaints.filter((c) => c.isSlaBreached).length;
-    const slaMetCount = resolvedComplaints.filter((c) => !c.isSlaBreached).length;
+    // 3. Real-Time SLA Compliance Rate (% of tickets resolved without breach)
+    const breachedCount = complaints.filter(
+      (c) => c.isSlaBreached || (c.slaDueAt && new Date(c.slaDueAt) < new Date() && c.status !== "resolved")
+    ).length;
+    const slaMetCount = resolvedComplaints.filter(
+      (c) => !c.isSlaBreached && (!c.slaDueAt || new Date(c.resolvedAt || c.updatedAt) <= new Date(c.slaDueAt))
+    ).length;
     const slaComplianceRate = resolvedComplaints.length > 0
       ? Number(((slaMetCount / resolvedComplaints.length) * 100).toFixed(1))
       : 100;

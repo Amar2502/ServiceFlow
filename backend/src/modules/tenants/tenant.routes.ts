@@ -1,10 +1,12 @@
 import { Router } from "express";
-import { updateTenantName, updateTenantRoutingMode } from "./tenant.controller";
+import { updateTenantName, updateTenantRoutingMode, getTenantDetails } from "./tenant.controller";
 import { authenticateJwt, requireRole } from "../../middlewares/role.middleware";
 import { validateRequest } from "../../middlewares/validate.middleware";
 import { UpdateTenantNameSchema, UpdateTenantRoutingModeSchema } from "./tenant.schema";
 
 const router = Router();
+
+router.get("/me", authenticateJwt, getTenantDetails);
 
 // Tenant configuration changes are restricted to ADMIN users
 router.patch("/update-name", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: UpdateTenantNameSchema }), updateTenantName);

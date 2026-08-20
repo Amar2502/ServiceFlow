@@ -46,7 +46,17 @@ export async function apiRequest<T>(
     let msg = res.statusText;
     if (typeof data === "object" && data !== null) {
       const obj = data as Record<string, unknown>;
-      if (typeof obj.detail === "string" && obj.detail) {
+      if (Array.isArray(obj.invalid_params) && obj.invalid_params.length > 0) {
+        const details = obj.invalid_params
+          .map((p: any) => (p.name && p.reason ? `${p.name}: ${p.reason}` : p.reason || p.name))
+          .filter(Boolean)
+          .join("; ");
+        if (details) {
+          msg = `Validation Error — ${details}`;
+        } else if (typeof obj.detail === "string" && obj.detail) {
+          msg = obj.detail;
+        }
+      } else if (typeof obj.detail === "string" && obj.detail) {
         msg = obj.detail;
       } else if (typeof obj.message === "string" && obj.message) {
         msg = obj.message;

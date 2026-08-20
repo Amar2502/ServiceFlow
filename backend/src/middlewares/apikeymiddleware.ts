@@ -47,6 +47,9 @@ export const apiKeyAuth = async (
     req.user = {
       tenantId: apiKeyRecord.tenantId,
       routingMode: apiKeyRecord.tenant.routingMode as "DEPARTMENT" | "EMPLOYEE",
+      role: "ADMIN",
+      name: "API Integration",
+      email: "api@tenant",
     };
 
     next();

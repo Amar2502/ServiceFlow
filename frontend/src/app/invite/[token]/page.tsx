@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, ShieldAlert, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { api } from "@/lib/api";
@@ -32,7 +32,41 @@ export default function InvitePage() {
     title: "",
   });
   const [loading, setLoading] = useState(false);
+  const [validating, setValidating] = useState(true);
+  const [tokenError, setTokenError] = useState("");
+  const [tenantName, setTenantName] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!token) return;
+
+    setValidating(true);
+    api
+      .get<{
+        valid: boolean;
+        tenantName?: string;
+        role?: string;
+        message?: string;
+      }>(`/api/invite/${token}`)
+      .then((data) => {
+        if (data.valid) {
+          setTenantName(data.tenantName || "Organization");
+          setTokenError("");
+        } else {
+          setTokenError(data.message || "Invalid or expired invitation token");
+        }
+      })
+      .catch((err) => {
+        setTokenError(
+          err instanceof Error
+            ? err.message
+            : "This invitation token is invalid, expired, or has already been redeemed."
+        );
+      })
+      .finally(() => {
+        setValidating(false);
+      });
+  }, [token]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -75,6 +109,56 @@ export default function InvitePage() {
     }
   };
 
+  if (validating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-[#f2dab6] to-[#e8c9a0] p-4">
+        <Card className="w-full max-w-md border-none shadow-xl bg-white/90 text-center p-6 space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin text-[#8c6d4e] mx-auto" />
+          <p className="text-sm font-medium text-[#5a3e2b]">Verifying invitation token...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (tokenError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-[#f2dab6] to-[#e8c9a0] p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="w-full max-w-md"
+        >
+          <Card className="border-none shadow-xl bg-white">
+            <CardHeader className="text-center space-y-2">
+              <div className="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                <ShieldAlert className="h-6 w-6 text-red-600" />
+              </div>
+              <CardTitle className="text-xl font-bold text-slate-900">
+                Invalid or Expired Invitation
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-600">
+                {tokenError}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center text-xs text-slate-500 space-y-4">
+              <p>
+                Please ask your organization administrator to generate a new invitation link from the Staff Workload section.
+              </p>
+            </CardContent>
+            <CardFooter className="flex justify-center pt-2">
+              <Link href="/login">
+                <Button className="bg-[#8c6d4e] hover:bg-[#725a3f] text-white text-xs">
+                  Return to Login
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-[#f2dab6] to-[#e8c9a0] p-4">
       <motion.div
@@ -96,7 +180,7 @@ export default function InvitePage() {
               Accept Invitation
             </CardTitle>
             <CardDescription className="text-center">
-              Complete your registration to join the team
+              Join <strong>{tenantName}</strong> workspace as a team member
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -195,4 +279,3 @@ export default function InvitePage() {
     </div>
   );
 }
-

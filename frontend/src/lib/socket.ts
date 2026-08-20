@@ -41,3 +41,10 @@ export function joinTicketRoom(complaintId: string) {
     s.emit("join:ticket", complaintId);
   }
 }
+
+export function disconnectSocket() {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
+}

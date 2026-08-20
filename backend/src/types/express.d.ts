@@ -9,6 +9,7 @@ declare global {
         email?: string;
         tenantId: string;
         role?: string;
+        employeeId?: string;
         routingMode?: "DEPARTMENT" | "EMPLOYEE";
       };
     }

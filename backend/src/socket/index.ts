@@ -1,6 +1,8 @@
 import { Server as HttpServer } from "http";
 import { Server as SocketIOServer, Socket } from "socket.io";
 import { config } from "../config/config";
+import { db } from "../config/db";
+import { authSocket } from "./middleware/auth.socket";
 
 let io: SocketIOServer | null = null;
 
@@ -12,42 +14,86 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
     },
   });
 
-  io.on("connection", (socket: Socket) => {
-    console.log(`[Socket.io] Client connected: ${socket.id}`);
+  // Socket.io Authentication Middleware
+  io.use(authSocket);
 
-    // Join tenant room
+  io.on("connection", (socket: Socket) => {
+    const user = socket.data.user;
+    if (!user) return;
+    const userId = user.userId || user.id;
+    console.log(`[Socket.io] Client connected: ${socket.id} (User: ${userId}, Tenant: ${user.tenantId})`);
+
+    // Auto-join authenticated user's tenant room
+    if (user.tenantId) {
+      const defaultTenantRoom = `tenant:${user.tenantId}`;
+      socket.join(defaultTenantRoom);
+      console.log(`[Socket.io] Socket ${socket.id} auto-joined room ${defaultTenantRoom}`);
+    }
+
+    // Auto-join authenticated user's personal room
+    if (userId) {
+      const defaultUserRoom = `user:${userId}`;
+      socket.join(defaultUserRoom);
+    }
+
+    // Auto-join tenant admin room if role is ADMIN
+    if (user.role === "ADMIN" && user.tenantId) {
+      const defaultAdminRoom = `admin:${user.tenantId}`;
+      socket.join(defaultAdminRoom);
+      console.log(`[Socket.io] Socket ${socket.id} auto-joined room ${defaultAdminRoom}`);
+    }
+
+    // Join tenant room (with tenant authorization check)
     socket.on("join:tenant", (tenantId: string) => {
-      if (tenantId) {
+      if (tenantId === user.tenantId) {
         const room = `tenant:${tenantId}`;
         socket.join(room);
         console.log(`[Socket.io] Socket ${socket.id} joined room ${room}`);
+      } else {
+        console.warn(`[Socket.io Security Warning] Unauthorized join:tenant attempt by user ${userId} for tenant ${tenantId}`);
       }
     });
 
-    // Join user/agent room
-    socket.on("join:user", (userId: string) => {
-      if (userId) {
-        const room = `user:${userId}`;
+    // Join user room (with user authorization check)
+    socket.on("join:user", (reqUserId: string) => {
+      if (reqUserId === userId) {
+        const room = `user:${reqUserId}`;
         socket.join(room);
         console.log(`[Socket.io] Socket ${socket.id} joined room ${room}`);
+      } else {
+        console.warn(`[Socket.io Security Warning] Unauthorized join:user attempt by user ${userId} for userId ${reqUserId}`);
       }
     });
 
-    // Join tenant admin room
+    // Join tenant admin room (with admin role & tenant authorization check)
     socket.on("join:admin", (tenantId: string) => {
-      if (tenantId) {
+      if (tenantId === user.tenantId && user.role === "ADMIN") {
         const room = `admin:${tenantId}`;
         socket.join(room);
         console.log(`[Socket.io] Socket ${socket.id} joined room ${room}`);
+      } else {
+        console.warn(`[Socket.io Security Warning] Unauthorized join:admin attempt by user ${userId} (Role: ${user.role}) for tenant ${tenantId}`);
       }
     });
 
-    // Join ticket conversation room
-    socket.on("join:ticket", (complaintId: string) => {
-      if (complaintId) {
-        const room = `ticket:${complaintId}`;
-        socket.join(room);
-        console.log(`[Socket.io] Socket ${socket.id} joined room ${room}`);
+    // Join ticket conversation room (with ticket tenant authorization check)
+    socket.on("join:ticket", async (complaintId: string) => {
+      if (!complaintId) return;
+      try {
+        const complaint = await db.complaint.findUnique({
+          where: { id: complaintId },
+          select: { tenantId: true },
+        });
+
+        if (complaint && complaint.tenantId === user.tenantId) {
+          const room = `ticket:${complaintId}`;
+          socket.join(room);
+          console.log(`[Socket.io] Socket ${socket.id} joined room ${room}`);
+        } else {
+          console.warn(`[Socket.io Security Warning] Unauthorized join:ticket attempt by user ${userId} for complaint ${complaintId}`);
+        }
+      } catch (err) {
+        console.error(`[Socket.io Error] Failed verifying ticket ownership for socket ${socket.id}:`, err);
       }
     });
 

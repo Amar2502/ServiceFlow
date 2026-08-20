@@ -90,26 +90,7 @@ export class InviteService {
    * Retrieves invite token details from Redis cache with DB fallback.
    */
   static async getInviteByToken(token: string) {
-    try {
-      if (redis.status === "ready") {
-        const cached = await redis.get(`invite:${token}`);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          return {
-            id: parsed.id,
-            tenantId: parsed.tenantId,
-            role: parsed.role as Role,
-            departmentId: parsed.departmentId as string | null,
-            expiresAt: new Date(parsed.expiresAt),
-            used: Boolean(parsed.used),
-          };
-        }
-      }
-    } catch (err) {
-      console.warn("[InviteService Redis Warning] Failed to read cached invite token:", err);
-    }
-
-    // Database Fallback
+    // Check PostgreSQL database first for authoritative status
     const invite = await db.invite.findFirst({
       where: { token },
       select: {
@@ -121,6 +102,11 @@ export class InviteService {
         used: true,
       },
     });
+
+    if (invite && invite.used && redis.status === "ready") {
+      // Invalidate any lingering stale Redis entry asynchronously
+      redis.del(`invite:${token}`).catch(() => {});
+    }
 
     return invite;
   }

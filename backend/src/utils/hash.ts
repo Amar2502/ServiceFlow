@@ -12,14 +12,10 @@ export const hashPasswordDev = async (password: string): Promise<string> => {
 export const comparePassword = async (password: string, hash: string): Promise<boolean> => {
     if (!password || !hash) return false;
     try {
-        if (hash.startsWith("$2a$") || hash.startsWith("$2b$") || hash.startsWith("$2y$")) {
-            return await bcrypt.compare(password, hash);
-        }
+        return await bcrypt.compare(password, hash);
     } catch {
-        // Fallback below
+        return false;
     }
-    // Fallback for legacy dev plaintext passwords
-    return password === hash;
 };
 
 export const comparePasswordDev = async (password: string, hash: string): Promise<boolean> => {

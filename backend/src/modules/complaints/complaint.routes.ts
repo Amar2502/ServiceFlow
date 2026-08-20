@@ -33,10 +33,10 @@ router.get("/all", authenticateJwt, requireRole("ADMIN", "AGENT"), getAllComplai
 router.get("/details/:complaintId", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ params: ComplaintIdParamSchema }), getComplaintDetails);
 router.post("/send-resolution-email", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ body: SendResolutionEmailSchema }), sendResolutionEmailController);
 router.patch("/update-status", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ body: UpdateComplaintStatusSchema }), updateComplaintStatus);
-router.patch("/assign-to-employee", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ body: AssignEmployeeSchema }), assignComplaintToEmployee);
-router.patch("/assign-to-department", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ body: AssignDepartmentSchema }), assignComplaintToDepartment);
 
-// Admin-only management endpoints
+// Admin-only management & ticket assignment endpoints
+router.patch("/assign-to-employee", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: AssignEmployeeSchema }), assignComplaintToEmployee);
+router.patch("/assign-to-department", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: AssignDepartmentSchema }), assignComplaintToDepartment);
 router.patch("/delete", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: ComplaintIdBodySchema }), deleteComplaint);
 router.patch("/restore", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: ComplaintIdBodySchema }), restoreComplaint);
 
