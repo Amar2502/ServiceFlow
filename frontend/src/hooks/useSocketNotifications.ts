@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getSocket, joinUserRoom, joinTenantRoom } from "@/lib/socket";
+import { getSocket, joinUserRoom, joinTenantRoom, joinAdminRoom } from "@/lib/socket";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { toast } from "sonner";
@@ -23,6 +23,10 @@ export function useSocketNotifications() {
     joinTenantRoom(user.tenantId);
     joinUserRoom(user.userId);
 
+    if (user.role === "ADMIN") {
+      joinAdminRoom(user.tenantId);
+    }
+
     const handleTicketAssigned = (data: {
       complaintId: string;
       title: string;
@@ -33,7 +37,6 @@ export function useSocketNotifications() {
     }) => {
       const timestamp = data.timestamp || new Date().toISOString();
 
-      // 1. Store in notification store (persisted for Bell icon)
       addNotification({
         complaintId: data.complaintId,
         title: data.title || "Complaint Assigned",
@@ -43,7 +46,6 @@ export function useSocketNotifications() {
         timestamp,
       });
 
-      // 2. Trigger real-time interactive Toast notification on active screen
       toast.info("🎟️ Complaint Assigned to You", {
         description: data.message || data.title,
         duration: 7000,
@@ -54,10 +56,54 @@ export function useSocketNotifications() {
       });
     };
 
+    const handleAdminNotification = (data: {
+      complaintId: string;
+      title: string;
+      message: string;
+      priority?: string;
+      type?: string;
+      confidence?: number;
+      customerName?: string;
+      timestamp?: string;
+    }) => {
+      const timestamp = data.timestamp || new Date().toISOString();
+
+      addNotification({
+        complaintId: data.complaintId,
+        title: data.title || "Admin Notification",
+        message: data.message,
+        priority: data.priority,
+        customerName: data.customerName,
+        timestamp,
+      });
+
+      if (data.type === "low_confidence") {
+        toast.warning("⚠️ Low AI Routing Confidence", {
+          description: data.message,
+          duration: 9000,
+          action: {
+            label: "Review Ticket",
+            onClick: () => router.push(`/dashboard/complaints/${data.complaintId}`),
+          },
+        });
+      } else {
+        toast.info("📋 Complaint Ingested & Routed", {
+          description: data.message,
+          duration: 7000,
+          action: {
+            label: "View Ticket",
+            onClick: () => router.push(`/dashboard/complaints/${data.complaintId}`),
+          },
+        });
+      }
+    };
+
     socket.on("ticket:assigned", handleTicketAssigned);
+    socket.on("admin:notification", handleAdminNotification);
 
     return () => {
       socket.off("ticket:assigned", handleTicketAssigned);
+      socket.off("admin:notification", handleAdminNotification);
     };
   }, [user, initializeForUser, addNotification, router]);
 }

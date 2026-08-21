@@ -5,6 +5,7 @@ export const CreateInviteSchema = z.object({
     message: "Role must be 'ADMIN' or 'AGENT'",
   }),
   departmentId: z.string().uuid("Invalid departmentId UUID format").optional(),
+  title: z.string().min(2, "Employee title must be at least 2 characters").optional(),
 });
 
 export const LoginWithInviteSchema = z.object({
@@ -12,5 +13,5 @@ export const LoginWithInviteSchema = z.object({
   email: z.string().email("Invalid email address format"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   token: z.string().uuid("Invalid invite token format"),
-  title: z.string().min(2, "Title must be at least 2 characters"),
+  title: z.string().optional(),
 });

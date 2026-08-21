@@ -8,6 +8,7 @@ export interface CreateInviteInput {
   tenantId: string;
   role: Role;
   departmentId?: string;
+  title?: string;
 }
 
 export interface RedeemInviteInput {
@@ -15,43 +16,67 @@ export interface RedeemInviteInput {
   email: string;
   password: string;
   token: string;
-  title: string;
+  title?: string;
 }
 
 export class InviteService {
   /**
-   * Generates a single-use invitation token with Admin-specified role and department,
-   * stores it in Prisma DB, and caches it in Redis for sub-millisecond lookup.
+   * Generates a single-use invitation token.
+   * Requirement 10: Contains employee title if role is AGENT and routing strategy is EMPLOYEE.
+   * Requirement 11: Predefines department mapped to AGENT at creation time.
    */
-  static async createInvite({ tenantId, role, departmentId }: CreateInviteInput) {
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours validity
+  static async createInvite({ tenantId, role, departmentId, title }: CreateInviteInput) {
+    const tenant = await db.tenant.findUnique({
+      where: { id: tenantId },
+      select: { routingMode: true },
+    });
 
-    // Validate department belongs to tenant if provided
+    const routingMode = tenant?.routingMode || "DEPARTMENT";
+
     let validDepartmentId: string | null = null;
+
+    if (role === "AGENT") {
+      if (routingMode === "DEPARTMENT") {
+        if (!departmentId) {
+          throw new Error("DEPARTMENT_REQUIRED_FOR_AGENT");
+        }
+      } else if (routingMode === "EMPLOYEE") {
+        if (!title || !title.trim()) {
+          throw new Error("TITLE_REQUIRED_FOR_EMPLOYEE_ROUTING");
+        }
+      }
+    }
+
     if (departmentId) {
       const dept = await db.department.findFirst({
         where: { id: departmentId, tenantId, deletedAt: null },
         select: { id: true },
       });
-      if (dept) validDepartmentId = dept.id;
+
+      if (!dept) {
+        throw new Error("INVALID_DEPARTMENT");
+      }
+      validDepartmentId = dept.id;
     }
+
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours validity
 
     const invite = await db.invite.create({
       data: {
         tenantId,
         role,
         departmentId: validDepartmentId,
+        title: title ? title.trim() : null,
         expiresAt,
-        used: false,
       },
       select: {
         id: true,
         token: true,
         role: true,
         departmentId: true,
+        title: true,
         tenantId: true,
         expiresAt: true,
-        used: true,
       },
     });
 
@@ -65,8 +90,8 @@ export class InviteService {
             tenantId: invite.tenantId,
             role: invite.role,
             departmentId: invite.departmentId,
+            title: invite.title,
             expiresAt: invite.expiresAt.toISOString(),
-            used: false,
           }),
           "EX",
           86400
@@ -81,61 +106,48 @@ export class InviteService {
       token: invite.token,
       role: invite.role,
       department_id: invite.departmentId,
+      title: invite.title,
       expires_at: invite.expiresAt,
       invite_url: `${config.FRONTEND_URL}/invite/${invite.token}`,
     };
   }
 
   /**
-   * Retrieves invite token details from Redis cache with DB fallback.
+   * Retrieves invite token details from database.
    */
   static async getInviteByToken(token: string) {
-    // Check PostgreSQL database first for authoritative status
     const invite = await db.invite.findFirst({
       where: { token },
-      select: {
-        id: true,
-        tenantId: true,
-        role: true,
-        departmentId: true,
-        expiresAt: true,
-        used: true,
+      include: {
+        department: {
+          select: { id: true, name: true },
+        },
       },
     });
-
-    if (invite && invite.used && redis.status === "ready") {
-      // Invalidate any lingering stale Redis entry asynchronously
-      redis.del(`invite:${token}`).catch(() => {});
-    }
 
     return invite;
   }
 
   /**
-   * Redeems a single-use invitation token atomically.
-   * Auto-connects the newly registered employee to the Admin's pre-selected department.
+   * Requirement 9: Single-use user-centric invite:
+   * Redeems invite token, creates User and Employee profile, and DELETES the invite record!
    */
   static async redeemInvite({ name, email, password, token, title }: RedeemInviteInput) {
     const normalizedEmail = email.trim().toLowerCase();
 
-    // 1. Fetch token details (Redis cache or DB fallback)
+    // 1. Fetch token details
     const invite = await this.getInviteByToken(token);
 
     if (!invite) {
       throw new Error("INVALID_TOKEN");
     }
 
-    // 2. SINGLE-USE CHECK: Reject if token has already been redeemed
-    if (invite.used) {
-      throw new Error("INVITE_ALREADY_USED");
-    }
-
-    // 3. Expiration Check
+    // 2. Expiration Check
     if (invite.expiresAt < new Date()) {
       throw new Error("INVITE_EXPIRED");
     }
 
-    // 4. Duplicate Email Check within Tenant
+    // 3. Duplicate Email Check within Tenant
     const existingUser = await db.user.findFirst({
       where: {
         tenantId: invite.tenantId,
@@ -148,21 +160,10 @@ export class InviteService {
     }
 
     const passwordHash = await hashPassword(password);
+    const finalTitle = invite.title || title || "Support Specialist";
 
-    // 5. Atomic Prisma Transaction: Mark token as used, create user & auto-linked employee profile
+    // 4. Atomic Prisma Transaction: Create user & employee, then DELETE the invite token
     const result = await db.$transaction(async (tx) => {
-      const updateResult = await tx.invite.updateMany({
-        where: {
-          id: invite.id,
-          used: false,
-        },
-        data: { used: true },
-      });
-
-      if (updateResult.count === 0) {
-        throw new Error("INVITE_ALREADY_USED");
-      }
-
       let userRecord;
       try {
         userRecord = await tx.user.create({
@@ -170,7 +171,7 @@ export class InviteService {
             tenantId: invite.tenantId,
             email: normalizedEmail,
             passwordHash,
-            role: invite.role, // Admin-assigned role enforced
+            role: invite.role,
             name,
           },
         });
@@ -185,16 +186,21 @@ export class InviteService {
         data: {
           tenantId: invite.tenantId,
           userId: userRecord.id,
-          departmentId: invite.departmentId, // Auto-connected to Admin's pre-selected department
-          title,
+          departmentId: invite.departmentId, // Auto-connected to Admin's predefined department
+          title: finalTitle,
           name,
         },
+      });
+
+      // Requirement 9: Delete the invite record immediately upon redemption
+      await tx.invite.delete({
+        where: { id: invite.id },
       });
 
       return { user: userRecord, employee: employeeRecord };
     });
 
-    // 6. Invalidate Redis cache entry
+    // 5. Invalidate Redis cache entry
     try {
       if (redis.status === "ready") {
         await redis.del(`invite:${token}`);

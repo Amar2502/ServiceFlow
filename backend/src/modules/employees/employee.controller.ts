@@ -1,7 +1,5 @@
 import { Request, Response } from "express";
 import { db } from "../../config/db";
-import { config } from "../../config/config";
-import { Prisma } from "../../generated/prisma";
 import { WorkloadService } from "../complaints/workload.service";
 
 export const getAllActiveEmployees = async (req: Request, res: Response) => {
@@ -15,7 +13,7 @@ export const getAllActiveEmployees = async (req: Request, res: Response) => {
   try {
     const employees = await db.employee.findMany({
       where: { tenantId, deletedAt: null },
-      include: { user: true },
+      include: { user: true, department: true },
     });
 
     const formatted = employees.map((e) => ({
@@ -23,11 +21,10 @@ export const getAllActiveEmployees = async (req: Request, res: Response) => {
       tenant_id: e.tenantId,
       user_id: e.userId,
       department_id: e.departmentId,
+      department_name: e.department?.name || null,
       load: e.load,
       name: e.name && e.name.trim() !== "" ? e.name : e.user.name,
       title: e.title,
-      keywords: e.keywords,
-      vector: e.vector,
       created_at: e.createdAt,
       deleted_at: e.deletedAt,
     }));
@@ -49,7 +46,7 @@ export const getAllDeletedEmployees = async (req: Request, res: Response) => {
   try {
     const employees = await db.employee.findMany({
       where: { tenantId, deletedAt: { not: null } },
-      include: { user: true },
+      include: { user: true, department: true },
     });
 
     const formatted = employees.map((e) => ({
@@ -57,11 +54,10 @@ export const getAllDeletedEmployees = async (req: Request, res: Response) => {
       tenant_id: e.tenantId,
       user_id: e.userId,
       department_id: e.departmentId,
+      department_name: e.department?.name || null,
       load: e.load,
       name: e.name && e.name.trim() !== "" ? e.name : e.user.name,
       title: e.title,
-      keywords: e.keywords,
-      vector: e.vector,
       created_at: e.createdAt,
       deleted_at: e.deletedAt,
     }));
@@ -178,87 +174,6 @@ export const mapEmployeeToDepartment = async (req: Request, res: Response) => {
       data: { departmentId },
     });
     res.status(200).json({ message: "Employee mapped to department successfully" });
-  } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-export const createEmployeeVectors = async (req: Request, res: Response) => {
-  const { keywords, employeeId } = req.body as { keywords: string; employeeId: string };
-
-  if (!employeeId) {
-    res.status(400).json({ message: "All fields are required" });
-    return;
-  }
-
-  const tenantId = req.user?.tenantId;
-
-  if (!tenantId) {
-    res.status(400).json({ message: "Unauthorized" });
-    return;
-  }
-
-  if (!keywords) {
-    res.status(400).json({ message: "At least one keyword is required" });
-    return;
-  }
-
-  const keywordArray = keywords
-    .replace(/[^\w\s]/g, "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  try {
-    let vector: unknown = null;
-    let vectorDimension: number | undefined = undefined;
-
-    try {
-      const response = await fetch(`${config.ML_SERVICE_URL}/profile/vectorize`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          profile_keywords: keywordArray,
-        }),
-      });
-
-      if (response.ok) {
-        const vectorData = await response.json();
-        vector = vectorData.vectors;
-        vectorDimension = vectorData.vector_dimension;
-      }
-    } catch {
-      // AI zero-shot works without ML service
-    }
-
-    const existingEmp = await db.employee.findUnique({
-      where: { id: employeeId },
-      select: { tenantId: true },
-    });
-
-    if (!existingEmp || existingEmp.tenantId !== tenantId) {
-      res.status(403).json({ message: "Forbidden: Employee profile access denied" });
-      return;
-    }
-
-    const employeeResult = await db.employee.update({
-      where: { id: employeeId },
-      data: {
-        vector: vector ? (vector as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
-        keywords: keywordArray,
-      },
-      select: { id: true, name: true },
-    });
-
-    res.status(200).json({
-      message: "Employee keywords updated successfully",
-      employee: {
-        id: employeeResult.id,
-        name: employeeResult.name,
-        keywords: keywordArray,
-      },
-      vector_dimension: vectorDimension || null,
-    });
   } catch (err) {
     res.status(500).json({ message: "Internal server error" });
   }

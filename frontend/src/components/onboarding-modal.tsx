@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   PlayCircle,
   HelpCircle,
@@ -51,24 +50,24 @@ const adminSteps: StepItem[] = [
     mediaTitle: "VID_DEMO_02_ROUTING_MODE.mp4",
     mediaIcon: <Settings className="h-10 w-10 text-emerald-400 animate-spin-slow" />,
     description:
-      "Configure your preferred Ticket Routing Mode in Tenant Settings: DEPARTMENT Mode uses Groq GenAI vector matching to route tickets to departments. EMPLOYEE Mode automatically assigns tickets to the least-loaded active employee.",
+      "Configure your preferred Ticket Routing Mode in Tenant Settings: DEPARTMENT Mode uses Groq GenAI to route complaints to department queues. EMPLOYEE Mode automatically routes complaints based on employee titles.",
     highlights: [
-      "DEPARTMENT Mode: AI vector zero-shot classification.",
-      "EMPLOYEE Mode: Dynamic workload balancing algorithm.",
+      "DEPARTMENT Mode: AI zero-shot department routing.",
+      "EMPLOYEE Mode: AI title-based employee routing.",
       "Toggle anytime under Dashboard → Tenant Settings.",
     ],
   },
   {
-    title: "Step 3: Department Vector Keywords",
-    subtitle: "Training Groq AI Zero-Shot Classification",
+    title: "Step 3: Department Routing",
+    subtitle: "Configuring Department Queues",
     mediaTitle: "VID_DEMO_03_KEYWORDS.mp4",
     mediaIcon: <Building2 className="h-10 w-10 text-blue-400" />,
     description:
-      "Navigate to Department Routing to create departments (e.g. Billing, Technical Support, Logistics) and define vector keywords so Groq AI routes incoming tickets accurately.",
+      "Navigate to Department Routing to create active departments (e.g. Billing, Technical Support, Logistics) so Groq AI routes incoming tickets accurately.",
     highlights: [
-      "Add keywords like 'refund, invoice, payment' to Billing.",
-      "Add 'delivery, tracking, shipping' to Logistics.",
-      "Groq AI matches complaint text against department vectors.",
+      "Create departments like Billing, Support, or Logistics.",
+      "Groq AI matches complaint text against department names.",
+      "Automatically load-balances assigned staff within departments.",
     ],
   },
   {
@@ -77,11 +76,11 @@ const adminSteps: StepItem[] = [
     mediaTitle: "VID_DEMO_04_SINGLE_INVITES.mp4",
     mediaIcon: <Users className="h-10 w-10 text-purple-400" />,
     description:
-      "When inviting support agents under Staff Workload, select their target Department during link generation. When the agent accepts the single-use invite, they are automatically linked to that department!",
+      "When inviting support agents under Staff Workload, select their target Department during link generation. When the agent accepts the single-use invite, they are automatically linked to that department and the invite is deleted!",
     highlights: [
-      "Single-Use Security: Links expire after 1 redemption.",
+      "Single-Use Security: Links are deleted immediately upon redemption.",
       "Admin sets role (ADMIN / AGENT) to prevent privilege escalation.",
-      "Auto-connects agent profile to pre-selected department.",
+      "Auto-connects agent profile to pre-selected department and title.",
     ],
   },
 ];
@@ -185,7 +184,6 @@ export function OnboardingModal({ forceOpen = false, onClose = () => {} }: { for
           <p className="text-xs text-zinc-400">{step.subtitle}</p>
         </DialogHeader>
 
-        {/* TOP MEDIA CONTAINER (Matches User Screenshot Mockup VIDEO.mp4 box) */}
         <div className="w-full bg-[#1e1e1e] border-2 border-zinc-700 rounded-lg h-48 flex flex-col items-center justify-center p-4 relative overflow-hidden my-2 group">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-purple-500/10 pointer-events-none" />
           
@@ -199,7 +197,6 @@ export function OnboardingModal({ forceOpen = false, onClose = () => {} }: { for
           </div>
         </div>
 
-        {/* GUIDE DESCRIPTION BOX (Matches User Screenshot Mockup Description box) */}
         <div className="bg-[#1e1e1e] border border-zinc-700 rounded-lg p-4 space-y-3">
           <p className="text-sm text-zinc-200 leading-relaxed font-sans">
             {step.description}
@@ -215,7 +212,6 @@ export function OnboardingModal({ forceOpen = false, onClose = () => {} }: { for
           </div>
         </div>
 
-        {/* BOTTOM ACTION BUTTONS (Matches User Screenshot Mockup: Reddish "I KNOW" & Greenish "Next") */}
         <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-1.5">
             {steps.map((_, i) => (
@@ -229,7 +225,6 @@ export function OnboardingModal({ forceOpen = false, onClose = () => {} }: { for
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Secondary Button: "I KNOW" / "Skip Tour" (Reddish border styling) */}
             <Button
               variant="outline"
               size="sm"
@@ -239,7 +234,6 @@ export function OnboardingModal({ forceOpen = false, onClose = () => {} }: { for
               I KNOW
             </Button>
 
-            {/* Primary Button: "Next" / "Finish" (Greenish styling) */}
             <Button
               size="sm"
               onClick={handleNext}

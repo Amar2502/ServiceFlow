@@ -1,6 +1,5 @@
 import { Router } from "express";
 import {
-  createEmployeeVectors,
   deleteEmployee,
   getAllActiveEmployees,
   getAllDeletedEmployees,
@@ -15,7 +14,6 @@ import { validateRequest } from "../../middlewares/validate.middleware";
 import {
   EmployeeIdBodySchema,
   EmployeeIdParamSchema,
-  EmployeeVectorsSchema,
   MapDepartmentSchema,
   UpdateEmployeeNameSchema,
   UpdateEmployeeTitleSchema,
@@ -32,7 +30,6 @@ router.get("/all-deleted", authenticateJwt, requireRole("ADMIN"), getAllDeletedE
 router.patch("/delete", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: EmployeeIdBodySchema }), deleteEmployee);
 router.patch("/restore", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: EmployeeIdBodySchema }), restoreEmployee);
 router.patch("/map-department", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: MapDepartmentSchema }), mapEmployeeToDepartment);
-router.post("/vectors", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: EmployeeVectorsSchema }), createEmployeeVectors);
 router.patch("/update-name", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: UpdateEmployeeNameSchema }), updateEmployeeName);
 router.patch("/update-title", authenticateJwt, requireRole("ADMIN"), validateRequest({ body: UpdateEmployeeTitleSchema }), updateEmployeeTitle);
 

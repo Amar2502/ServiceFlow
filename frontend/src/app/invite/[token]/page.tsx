@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, ArrowRight, ShieldAlert, Loader2 } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, ShieldAlert, Loader2, Building2, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { api } from "@/lib/api";
@@ -35,6 +35,9 @@ export default function InvitePage() {
   const [validating, setValidating] = useState(true);
   const [tokenError, setTokenError] = useState("");
   const [tenantName, setTenantName] = useState("");
+  const [departmentName, setDepartmentName] = useState<string | null>(null);
+  const [predefinedTitle, setPredefinedTitle] = useState<string | null>(null);
+  const [inviteRole, setInviteRole] = useState<string>("AGENT");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -46,11 +49,21 @@ export default function InvitePage() {
         valid: boolean;
         tenantName?: string;
         role?: string;
+        departmentName?: string;
+        title?: string;
         message?: string;
       }>(`/api/invite/${token}`)
       .then((data) => {
         if (data.valid) {
           setTenantName(data.tenantName || "Organization");
+          setDepartmentName(data.departmentName || null);
+          setPredefinedTitle(data.title || null);
+          if (data.title) {
+            setFormData((prev) => ({ ...prev, title: data.title || "" }));
+          }
+          if (data.role) {
+            setInviteRole(data.role);
+          }
           setTokenError("");
         } else {
           setTokenError(data.message || "Invalid or expired invitation token");
@@ -90,6 +103,7 @@ export default function InvitePage() {
         role: "ADMIN" | "AGENT";
       }>("/api/invite/login", {
         ...formData,
+        title: predefinedTitle || formData.title || "Support Specialist",
         token,
       });
 
@@ -114,7 +128,7 @@ export default function InvitePage() {
       <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-[#f2dab6] to-[#e8c9a0] p-4">
         <Card className="w-full max-w-md border-none shadow-xl bg-white/90 text-center p-6 space-y-3">
           <Loader2 className="h-8 w-8 animate-spin text-[#8c6d4e] mx-auto" />
-          <p className="text-sm font-medium text-[#5a3e2b]">Verifying invitation token...</p>
+          <p className="text-sm font-medium text-[#5a3e2b]">Verifying single-use invitation token...</p>
         </Card>
       </div>
     );
@@ -135,7 +149,7 @@ export default function InvitePage() {
                 <ShieldAlert className="h-6 w-6 text-red-600" />
               </div>
               <CardTitle className="text-xl font-bold text-slate-900">
-                Invalid or Expired Invitation
+                Invalid or Redeemed Invitation
               </CardTitle>
               <CardDescription className="text-xs text-slate-600">
                 {tokenError}
@@ -143,7 +157,7 @@ export default function InvitePage() {
             </CardHeader>
             <CardContent className="text-center text-xs text-slate-500 space-y-4">
               <p>
-                Please ask your organization administrator to generate a new invitation link from the Staff Workload section.
+                Invitation links are single-use and automatically deleted after redemption. Please request a new invite link from your organization administrator if needed.
               </p>
             </CardContent>
             <CardFooter className="flex justify-center pt-2">
@@ -167,7 +181,7 @@ export default function InvitePage() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        <Card className="border-none shadow-xl">
+        <Card className="border-none shadow-xl bg-white">
           <CardHeader className="space-y-1">
             <div className="flex justify-center mb-6">
               <Link href="/">
@@ -180,10 +194,18 @@ export default function InvitePage() {
               Accept Invitation
             </CardTitle>
             <CardDescription className="text-center">
-              Join <strong>{tenantName}</strong> workspace as a team member
+              Join <strong>{tenantName}</strong> as a <strong>{inviteRole}</strong>
             </CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-4">
+            {departmentName && (
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-900 flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-amber-700 shrink-0" />
+                <span>Preassigned Department: <strong>{departmentName}</strong></span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 {error && (
@@ -205,6 +227,7 @@ export default function InvitePage() {
                     className="border-[#d6bfa0] focus-visible:ring-[#8c6d4e]"
                   />
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-[#5a3e2b]">
                     Email
@@ -219,6 +242,7 @@ export default function InvitePage() {
                     className="border-[#d6bfa0] focus-visible:ring-[#8c6d4e]"
                   />
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="title" className="text-[#5a3e2b]">
                     Job Title
@@ -226,13 +250,20 @@ export default function InvitePage() {
                   <Input
                     id="title"
                     type="text"
-                    placeholder="e.g., Support Agent, Manager"
+                    placeholder="e.g., Billing Specialist, Support Agent"
                     value={formData.title}
                     onChange={handleChange}
+                    readOnly={Boolean(predefinedTitle)}
                     required
                     className="border-[#d6bfa0] focus-visible:ring-[#8c6d4e]"
                   />
+                  {predefinedTitle && (
+                    <p className="text-[11px] text-amber-800">
+                      * Title predefined by Administrator.
+                    </p>
+                  )}
                 </div>
+
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <Label htmlFor="password" className="text-[#5a3e2b]">
@@ -261,6 +292,7 @@ export default function InvitePage() {
                     </button>
                   </div>
                 </div>
+
                 <Button
                   type="submit"
                   className="w-full bg-[#8c6d4e] hover:bg-[#725a3f] text-white"

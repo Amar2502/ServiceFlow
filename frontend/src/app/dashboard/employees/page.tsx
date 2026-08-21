@@ -29,21 +29,24 @@ import { Label } from "@/components/ui/label";
 import { EmployeesTable } from "./employees-table";
 import { useState } from "react";
 import { useActiveEmployees } from "@/hooks/use-employees";
+import { useDepartments } from "@/hooks/use-departments";
 import { useAuth } from "@/components/auth-provider";
 import { RbacGuard } from "@/components/rbac-guard";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Building2, UserCheck } from "lucide-react";
+import { Building2, UserCheck } from "lucide-react";
 
 export default function EmployeesPage() {
   const { user } = useAuth();
   const isEmployeeMode = user?.routingMode === "EMPLOYEE";
   const { data: employees = [], isLoading, refetch } = useActiveEmployees(user?.tenantId);
+  const { data: departments = [] } = useDepartments();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [inviteRole, setInviteRole] = useState<"ADMIN" | "AGENT">("AGENT");
+  const [inviteDepartmentId, setInviteDepartmentId] = useState<string>("");
+  const [inviteTitle, setInviteTitle] = useState<string>("");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [generatedInvite, setGeneratedInvite] = useState<{
     token: string;
@@ -53,11 +56,27 @@ export default function EmployeesPage() {
 
   const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (inviteRole === "AGENT") {
+      if (!isEmployeeMode && !inviteDepartmentId) {
+        toast.error("Please select a predefined department for the agent invite.");
+        return;
+      }
+      if (isEmployeeMode && !inviteTitle.trim()) {
+        toast.error("Employee title is required when routing strategy is employee-centric.");
+        return;
+      }
+    }
+
     setInviteLoading(true);
     try {
       const response = await api.post<{ token: string; invite_url: string }>(
         "/api/invite/create",
-        { role: inviteRole }
+        {
+          role: inviteRole,
+          departmentId: inviteRole === "AGENT" && !isEmployeeMode ? inviteDepartmentId : undefined,
+          title: inviteRole === "AGENT" && isEmployeeMode && inviteTitle.trim() ? inviteTitle.trim() : undefined,
+        }
       );
       setGeneratedInvite({
         token: response.token,
@@ -100,9 +119,9 @@ export default function EmployeesPage() {
             )}
             <span>
               {isEmployeeMode ? (
-                <><strong>Direct Employee Routing Active:</strong> Inbound API complaints directly target individual staff members based on title/skill vector embeddings.</>
+                <><strong>Direct Employee Routing Active:</strong> Complaints are routed to staff based on employee titles.</>
               ) : (
-                <><strong>Department Workload Mode Active:</strong> Complaints are routed to departments first based on keyword vectors, then distributed to least-loaded agents.</>
+                <><strong>Department Workload Mode Active:</strong> Complaints are routed to departments first, then assigned to least-loaded agents.</>
               )}
             </span>
           </div>
@@ -131,7 +150,7 @@ export default function EmployeesPage() {
                 <SheetHeader>
                   <SheetTitle>Invite New Staff</SheetTitle>
                   <SheetDescription>
-                    Generate an invitation link for a new support agent or administrator.
+                    Generate a single-use invitation link for a new support agent or administrator.
                   </SheetDescription>
                 </SheetHeader>
 
@@ -139,7 +158,7 @@ export default function EmployeesPage() {
                   <div className="mt-6 space-y-4">
                     <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
                       <p className="text-xs font-medium text-amber-900 mb-2">
-                        ⚠️ Share this invite link with the staff member. It expires in 24 hours.
+                        ⚠️ Single-use link: Share this invite link with the staff member. It expires in 24 hours and is deleted once accepted.
                       </p>
                       <div className="flex items-center space-x-2">
                         <Input
@@ -165,6 +184,8 @@ export default function EmployeesPage() {
                       onClick={() => {
                         setGeneratedInvite(null);
                         setInviteRole("AGENT");
+                        setInviteDepartmentId("");
+                        setInviteTitle("");
                       }}
                     >
                       Generate Another Invite
@@ -173,14 +194,14 @@ export default function EmployeesPage() {
                 ) : (
                   <form onSubmit={handleCreateInvite} className="space-y-4 mt-6">
                     <div>
-                      <Label htmlFor="role" className="text-xs">
+                      <Label htmlFor="role" className="text-xs font-semibold">
                         Role <span className="text-red-500">*</span>
                       </Label>
                       <Select
                         value={inviteRole}
                         onValueChange={(value: "ADMIN" | "AGENT") => setInviteRole(value)}
                       >
-                        <SelectTrigger className="w-full bg-white mt-2 text-xs">
+                        <SelectTrigger className="w-full bg-white mt-1.5 text-xs">
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
@@ -189,6 +210,53 @@ export default function EmployeesPage() {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {inviteRole === "AGENT" && (
+                      <>
+                        {!isEmployeeMode ? (
+                          <div>
+                            <Label htmlFor="department" className="text-xs font-semibold">
+                              Predefined Department <span className="text-red-500">*</span>
+                            </Label>
+                            <Select
+                              value={inviteDepartmentId}
+                              onValueChange={(val) => setInviteDepartmentId(val)}
+                            >
+                              <SelectTrigger className="w-full bg-white mt-1.5 text-xs">
+                                <SelectValue placeholder="Select department to map agent to" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {departments.map((dept) => (
+                                  <SelectItem key={dept.id} value={dept.id}>
+                                    {dept.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              The invited agent will automatically be mapped to this department upon joining.
+                            </p>
+                          </div>
+                        ) : (
+                          <div>
+                            <Label htmlFor="title" className="text-xs font-semibold">
+                              Employee Title <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="title"
+                              placeholder="e.g. Billing Specialist, Tier 2 Support"
+                              value={inviteTitle}
+                              onChange={(e) => setInviteTitle(e.target.value)}
+                              required
+                              className="bg-white mt-1.5 text-xs"
+                            />
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              Required for Employee-Centric routing so AI can route complaints to this title.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
 
                     <Button
                       type="submit"

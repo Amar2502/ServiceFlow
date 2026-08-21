@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -26,13 +26,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useDepartments, useCreateDepartment } from "@/hooks/use-departments";
 import { RbacGuard } from "@/components/rbac-guard";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-
 import { useAuth } from "@/components/auth-provider";
 import Link from "next/link";
 import { AlertTriangle, Settings } from "lucide-react";
@@ -45,7 +43,6 @@ export default function DepartmentsPage() {
 
   const [formData, setFormData] = useState({
     name: "",
-    keywords: "",
   });
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -54,9 +51,13 @@ export default function DepartmentsPage() {
       toast.error("Department creation is disabled because your tenant strategy is EMPLOYEE mode.");
       return;
     }
+    if (!formData.name.trim()) {
+      toast.error("Department name is required");
+      return;
+    }
     try {
-      await createDepartmentMutation.mutateAsync(formData);
-      setFormData({ name: "", keywords: "" });
+      await createDepartmentMutation.mutateAsync({ name: formData.name.trim() });
+      setFormData({ name: "" });
     } catch (err: any) {
       toast.error(err.message || "Failed to create department");
     }
@@ -82,7 +83,7 @@ export default function DepartmentsPage() {
               <div>
                 <h3 className="font-bold text-amber-900 text-sm">Department Routing is Inactive</h3>
                 <p className="text-amber-800 mt-1">
-                  Your tenant strategy is currently set to <strong>EMPLOYEE (Direct Agent Vector Matching)</strong>. Incoming API complaints bypass department keyword vectors and target staff directly.
+                  Your tenant strategy is currently set to <strong>EMPLOYEE (Direct Employee Title Routing)</strong>. Complaints are routed directly based on employee titles.
                 </p>
               </div>
             </div>
@@ -97,10 +98,10 @@ export default function DepartmentsPage() {
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-[#3d2a1c]">
-              Department Routing & Classifier Seed
+              Department Management
             </h1>
             <p className="text-sm text-slate-500">
-              Configure department keyword vectors used by Groq GenAI for sub-200ms zero-shot routing.
+              Configure active departments used by AI for complaint classification and routing.
             </p>
           </div>
           <div>
@@ -115,7 +116,7 @@ export default function DepartmentsPage() {
                   <SheetHeader>
                     <SheetTitle>Create New Department</SheetTitle>
                     <SheetDescription>
-                      Seed keywords for TF-IDF similarity and LLM extraction routing.
+                      Add a department name to enable AI department-based routing.
                     </SheetDescription>
                   </SheetHeader>
                   <form onSubmit={handleCreate} className="space-y-4 mt-6">
@@ -126,20 +127,8 @@ export default function DepartmentsPage() {
                       <Input
                         placeholder="e.g. Billing & Refunds"
                         value={formData.name}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                        onChange={(e) => setFormData({ name: e.target.value })}
                         required
-                        className="bg-white text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1">
-                        Keywords (Comma-separated)
-                      </label>
-                      <Input
-                        placeholder="e.g. refund, payment, invoice, charge"
-                        value={formData.keywords}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, keywords: e.target.value }))}
                         className="bg-white text-xs"
                       />
                     </div>
@@ -162,7 +151,7 @@ export default function DepartmentsPage() {
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-[#5a3e2b]">Active Departments</CardTitle>
             <CardDescription>
-              Configured department profiles and vector seeds
+              Departments available for AI complaint routing
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -173,15 +162,14 @@ export default function DepartmentsPage() {
                 <Table>
                   <TableHeader className="bg-[#faf6f2]">
                     <TableRow>
-                      <TableHead className="text-left">Department</TableHead>
-                      <TableHead className="text-left">Routing Keywords</TableHead>
+                      <TableHead className="text-left">Department Name</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {departments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center py-8 text-xs text-slate-400">
+                        <TableCell colSpan={2} className="text-center py-8 text-xs text-slate-400">
                           No active departments found. Create your first department above.
                         </TableCell>
                       </TableRow>
@@ -190,19 +178,6 @@ export default function DepartmentsPage() {
                         <TableRow key={dept.id} className="hover:bg-slate-50">
                           <TableCell className="font-semibold text-xs text-slate-900">
                             {dept.name}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {dept.keywords && dept.keywords.length > 0 ? (
-                                dept.keywords.map((kw, i) => (
-                                  <Badge key={i} variant="outline" className="text-[10px] bg-amber-50 text-amber-900 border-amber-200">
-                                    {kw}
-                                  </Badge>
-                                ))
-                              ) : (
-                                <span className="text-xs text-slate-400">No seed keywords</span>
-                              )}
-                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <Button

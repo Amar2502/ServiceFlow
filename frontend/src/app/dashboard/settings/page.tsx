@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, UserCheck, ShieldAlert, Sparkles, CheckCircle2 } from "lucide-react";
+import { Building2, UserCheck, Sparkles } from "lucide-react";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -72,7 +72,7 @@ export default function SettingsPage() {
       useAuthStore.getState().updateUser({ routingMode });
       toast.success(
         `Routing strategy updated to ${
-          routingMode === "EMPLOYEE" ? "Direct Employee" : "Department Workload"
+          routingMode === "EMPLOYEE" ? "Direct Employee Title" : "Department"
         } mode`
       );
     } catch (err: unknown) {
@@ -101,7 +101,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-amber-300" />
-              <h2 className="text-base font-bold">Active Strategy: {currentMode === "EMPLOYEE" ? "Direct Employee / Agent Routing" : "Department Minimum-Workload Balance"}</h2>
+              <h2 className="text-base font-bold">Active Strategy: {currentMode === "EMPLOYEE" ? "Direct Employee Title Routing" : "Department Routing"}</h2>
             </div>
             <Badge className="bg-amber-400 text-black font-mono text-xs hover:bg-amber-300">
               {currentMode === "EMPLOYEE" ? "EMPLOYEE MODE ACTIVE" : "DEPARTMENT MODE ACTIVE"}
@@ -110,11 +110,11 @@ export default function SettingsPage() {
           <p className="text-xs text-[#dfc7ae] leading-relaxed">
             {currentMode === "EMPLOYEE" ? (
               <>
-                <strong>Direct Employee Strategy Active:</strong> Inbound API complaints are matched directly to individual support agent skills and profiles. Admin Department Routing UI/UX navigation and vector keyword editing features are <strong>HIDDEN & DISABLED</strong>.
+                <strong>Direct Employee Strategy Active:</strong> Inbound complaints match directly against employee titles.
               </>
             ) : (
               <>
-                <strong>Department Workload Strategy Active:</strong> Inbound API complaints match department keyword vectors first, then distribute to the least-loaded agent. Admin Department Routing management UI is <strong>ENABLED</strong> in navigation.
+                <strong>Department Strategy Active:</strong> Inbound complaints match against active department names, then distribute to least-loaded staff.
               </>
             )}
           </p>
@@ -180,10 +180,10 @@ export default function SettingsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="DEPARTMENT">
-                        Department Minimum-Workload Balance (Recommended)
+                        Department Routing Mode
                       </SelectItem>
                       <SelectItem value="EMPLOYEE">
-                        Direct Agent Zero-Shot Vector Match
+                        Employee Title Direct Routing Mode
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -196,12 +196,12 @@ export default function SettingsPage() {
                     ) : (
                       <UserCheck className="h-4 w-4 text-purple-700" />
                     )}
-                    Selected: {routingMode === "DEPARTMENT" ? "Department Routing Mode" : "Employee Direct Routing Mode"}
+                    Selected: {routingMode === "DEPARTMENT" ? "Department Routing Mode" : "Employee Title Direct Routing Mode"}
                   </div>
                   <p className="text-[11px] text-slate-600">
                     {routingMode === "DEPARTMENT"
-                      ? "Shows Admin Department Routing UI in navigation. Complaints route to department TF-IDF vectors, then load-balances staff."
-                      : "Hides Admin Department Routing UI from navigation. Complaints route directly to individual agents based on employee profiles."}
+                      ? "Complaints route to department names, then load-balances staff within that department."
+                      : "Complaints route directly to individual staff based on employee titles."}
                   </p>
                 </div>
 

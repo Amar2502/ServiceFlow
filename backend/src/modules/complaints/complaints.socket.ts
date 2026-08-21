@@ -16,6 +16,13 @@ export class ComplaintsSocket {
   }
 
   /**
+   * Emits notification to tenant administrators (e.g. new complaint created/routed, low confidence alert)
+   */
+  static emitAdminNotification(tenantId: string, payload: any): void {
+    SocketEmitter.emitToAdmin(tenantId, "admin:notification", payload);
+  }
+
+  /**
    * Emits ticket status change (open -> in_progress -> resolved) to tenant and ticket room
    */
   static emitTicketStatusChanged(tenantId: string, complaintId: string, payload: any): void {

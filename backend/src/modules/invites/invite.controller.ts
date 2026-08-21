@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import { Role } from "../../generated/prisma";
 
 export const createInvite = async (req: Request, res: Response) => {
-  const { role, departmentId } = req.body as { role: string; departmentId?: string };
+  const { role, departmentId, title } = req.body as { role: string; departmentId?: string; title?: string };
   const tenantId = req.user?.tenantId;
 
   if (!role || !tenantId) {
@@ -26,6 +26,7 @@ export const createInvite = async (req: Request, res: Response) => {
       tenantId,
       role: normalizedRole,
       departmentId,
+      title,
     });
 
     res.status(201).json({
@@ -33,13 +34,23 @@ export const createInvite = async (req: Request, res: Response) => {
       token: inviteData.token,
       role: inviteData.role,
       department_id: inviteData.department_id,
+      title: inviteData.title,
       expires_at: inviteData.expires_at,
       invite_url: inviteData.invite_url,
-      message: "Single-use invitation token created and cached successfully",
+      message: "Single-use invitation token created successfully",
     });
   } catch (err: any) {
-    console.error("[CreateInvite Error]:", err);
-    res.status(500).json({ message: "Internal server error creating invite" });
+    const msg = err.message || "";
+    if (msg === "DEPARTMENT_REQUIRED_FOR_AGENT") {
+      res.status(400).json({ message: "You must predefine the department when inviting an agent." });
+    } else if (msg === "TITLE_REQUIRED_FOR_EMPLOYEE_ROUTING") {
+      res.status(400).json({ message: "Employee title is required when inviting an agent in employee-centric routing mode." });
+    } else if (msg === "INVALID_DEPARTMENT") {
+      res.status(400).json({ message: "The specified department was not found." });
+    } else {
+      console.error("[CreateInvite Error]:", err);
+      res.status(500).json({ message: "Internal server error creating invite" });
+    }
   }
 };
 
@@ -49,11 +60,11 @@ export const loginWithInvite = async (req: Request, res: Response) => {
     email: string;
     password: string;
     token: string;
-    title: string;
+    title?: string;
   };
 
-  if (!name || !email || !password || !token || !title) {
-    res.status(400).json({ message: "All fields (name, email, password, token, title) are required" });
+  if (!name || !email || !password || !token) {
+    res.status(400).json({ message: "Name, email, password, and token are required" });
     return;
   }
 
@@ -94,9 +105,7 @@ export const loginWithInvite = async (req: Request, res: Response) => {
   } catch (err: any) {
     const msg = err.message || "";
     if (msg === "INVALID_TOKEN") {
-      res.status(400).json({ message: "Invalid invitation token" });
-    } else if (msg === "INVITE_ALREADY_USED") {
-      res.status(400).json({ message: "This invitation link has already been redeemed" });
+      res.status(400).json({ message: "Invalid or already redeemed invitation token" });
     } else if (msg === "INVITE_EXPIRED") {
       res.status(400).json({ message: "This invitation link has expired" });
     } else if (msg === "EMAIL_ALREADY_EXISTS" || err.code === "P2002") {
@@ -120,12 +129,7 @@ export const getInviteTokenDetails = async (req: Request, res: Response) => {
     const invite = await InviteService.getInviteByToken(token);
 
     if (!invite) {
-      res.status(404).json({ valid: false, message: "Invalid invitation token" });
-      return;
-    }
-
-    if (invite.used) {
-      res.status(400).json({ valid: false, message: "This invitation link has already been redeemed" });
+      res.status(404).json({ valid: false, message: "Invalid or already redeemed invitation token" });
       return;
     }
 
@@ -136,13 +140,17 @@ export const getInviteTokenDetails = async (req: Request, res: Response) => {
 
     const tenant = await db.tenant.findUnique({
       where: { id: invite.tenantId },
-      select: { name: true },
+      select: { name: true, routingMode: true },
     });
 
     res.status(200).json({
       valid: true,
       role: invite.role,
       tenantName: tenant?.name || "Organization",
+      routingMode: tenant?.routingMode || "DEPARTMENT",
+      departmentId: invite.departmentId,
+      departmentName: invite.department?.name || null,
+      title: invite.title || null,
       expiresAt: invite.expiresAt,
     });
   } catch (err) {

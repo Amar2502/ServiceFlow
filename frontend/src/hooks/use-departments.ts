@@ -6,7 +6,6 @@ export interface DepartmentItem {
   id: string;
   tenant_id: string;
   name: string;
-  keywords?: string[] | null;
   created_at: string;
 }
 
@@ -21,7 +20,7 @@ export function useCreateDepartment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (variables: { name: string; keywords: string }) =>
+    mutationFn: (variables: { name: string }) =>
       api.post<{ message: string; department: DepartmentItem }>("/api/departments/create", variables),
 
     onSuccess: () => {
