@@ -2,7 +2,7 @@
  * Base URL for the ServiceFlow backend. Set `NEXT_PUBLIC_API_URL` in `.env.local` for non-default hosts.
  */
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+  process.env.BACKEND_API_URL || "http://localhost:5000";
 
 export class ApiError extends Error {
   status: number;
