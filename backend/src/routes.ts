@@ -11,6 +11,16 @@ import { analyticsRoutes } from "./modules/analytics";
 
 export const masterRouter = Router();
 
+// Health check endpoint for cron-job.org and uptime monitors (/api/health)
+masterRouter.get("/health", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "ServiceFlow API",
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+  });
+});
+
 masterRouter.use("/auth", authRoutes);
 masterRouter.use("/apikey", apiKeyRoutes);
 masterRouter.use("/invite", inviteRoutes);

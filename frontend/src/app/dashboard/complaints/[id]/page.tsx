@@ -358,8 +358,8 @@ export default function ComplaintDetailPage({
 
   if (isComplaintLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center py-20 space-y-4 text-slate-500">
-        <RefreshCw className="h-8 w-8 animate-spin text-[#c9a382]" />
+      <div className="flex-1 flex flex-col items-center justify-center py-20 space-y-4 text-muted-foreground">
+        <RefreshCw className="h-8 w-8 animate-spin text-primary" />
         <p className="text-sm font-medium">Loading complaint #{complaintId.substring(0, 7)} details...</p>
       </div>
     );
@@ -370,14 +370,14 @@ export default function ComplaintDetailPage({
       <div className="flex-1 space-y-6">
         <Link
           href="/dashboard/complaints"
-          className="inline-flex items-center text-xs text-slate-600 hover:text-slate-900 font-medium"
+          className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground font-medium"
         >
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Complaints List
         </Link>
-        <Card className="bg-red-50 border-red-200">
+        <Card className="bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900">
           <CardHeader>
-            <CardTitle className="text-red-800">Complaint Not Found</CardTitle>
-            <CardDescription className="text-red-700 text-xs">
+            <CardTitle className="text-red-800 dark:text-red-300">Complaint Not Found</CardTitle>
+            <CardDescription className="text-red-700 dark:text-red-400 text-xs">
               The requested complaint ticket ID does not exist or has been removed.
             </CardDescription>
           </CardHeader>
@@ -385,7 +385,7 @@ export default function ComplaintDetailPage({
             <Button
               onClick={() => router.push("/dashboard/complaints")}
               variant="outline"
-              className="bg-white border-red-300 text-red-900 text-xs"
+              className="bg-background border-red-300 dark:border-red-800 text-red-900 dark:text-red-200 text-xs"
             >
               Return to All Complaints
             </Button>
@@ -403,7 +403,7 @@ export default function ComplaintDetailPage({
       <div className="flex items-center justify-between flex-wrap gap-3">
         <Link
           href="/dashboard/complaints"
-          className="inline-flex items-center text-xs font-semibold text-[#8a6e53] hover:text-[#5a3e2b] transition-colors"
+          className="inline-flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to Complaints Queue
         </Link>
@@ -411,30 +411,30 @@ export default function ComplaintDetailPage({
           <Button
             variant="outline"
             size="sm"
-            className="bg-white border-[#dfc7ae] text-xs"
+            className="bg-background border-border text-xs"
             onClick={() => {
               refetchComplaint();
               refetchMessages();
             }}
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-slate-600" />
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
             Refresh Details
           </Button>
         </div>
       </div>
 
       {/* Main Ticket Header Banner */}
-      <Card className="bg-white border-[#EED9C4] shadow-sm overflow-hidden">
-        <div className="bg-[#faf6f2] p-5 border-b border-[#EED9C4]">
+      <Card className="bg-card border-border shadow-sm overflow-hidden">
+        <div className="bg-muted/30 p-5 border-b border-border">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="space-y-1.5 flex-1">
               <div className="flex items-center flex-wrap gap-2">
-                <span className="font-mono text-xs font-bold text-slate-500 bg-white border border-[#dfc7ae] px-2 py-0.5 rounded">
+                <span className="font-mono text-xs font-bold text-muted-foreground bg-background border border-border px-2 py-0.5 rounded">
                   #{complaint.id.substring(0, 8)}
                 </span>
                 <button
                   onClick={copyComplaintId}
-                  className="text-slate-400 hover:text-slate-700 transition-colors p-1"
+                  className="text-muted-foreground hover:text-foreground transition-colors p-1"
                   title="Copy full UUID"
                 >
                   {copiedId ? (
@@ -445,14 +445,14 @@ export default function ComplaintDetailPage({
                 </button>
                 {getStatusBadge(complaint.status)}
                 {getPriorityBadge(complaint.priority)}
-                <span className="text-xs bg-white border border-[#dfc7ae] px-2 py-0.5 rounded font-medium">
+                <span className="text-xs bg-background border border-border px-2 py-0.5 rounded font-medium">
                   {getSentimentEmoji(complaint.sentiment)}
                 </span>
               </div>
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#3d2a1c]">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
                 {complaint.title}
               </h1>
-              <p className="text-xs text-slate-500 flex items-center gap-3 flex-wrap">
+              <p className="text-xs text-muted-foreground flex items-center gap-3 flex-wrap">
                 <span>Submitted: {new Date(complaint.created_at).toLocaleString()}</span>
                 <span>•</span>
                 <span>Last Activity: {new Date(complaint.updated_at).toLocaleString()}</span>
@@ -466,17 +466,17 @@ export default function ComplaintDetailPage({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="bg-white border-[#dfc7ae] text-xs text-slate-800"
+                    className="bg-background border-border text-xs text-foreground"
                     onClick={() => setShowStatusDialog(true)}
                   >
-                    <Edit className="h-3.5 w-3.5 mr-1.5 text-slate-600" />
+                    <Edit className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                     Status
                   </Button>
                   {user?.role === "ADMIN" && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="bg-white border-[#dfc7ae] text-xs text-slate-800"
+                      className="bg-background border-border text-xs text-foreground"
                       onClick={() => setShowAssignDialog(true)}
                     >
                       <Building2 className="h-3.5 w-3.5 mr-1.5 text-amber-700" />
@@ -501,7 +501,7 @@ export default function ComplaintDetailPage({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200 text-xs"
+                    className="bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/60 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900 text-xs"
                     onClick={() => setShowDeleteDialog(true)}
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-1.5" />
@@ -511,7 +511,7 @@ export default function ComplaintDetailPage({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 text-xs font-semibold"
+                    className="bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 text-xs font-semibold"
                     onClick={() => setShowRestoreDialog(true)}
                   >
                     <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
@@ -524,70 +524,70 @@ export default function ComplaintDetailPage({
         </div>
 
         {/* Highlight Metadata Grid */}
-        <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-white">
+        <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-card">
           {/* Customer info */}
-          <div className="p-3 rounded-lg bg-[#faf6f2] border border-[#f0e3d5] space-y-1">
-            <span className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider flex items-center gap-1">
+          <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
+            <span className="text-[11px] font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-1">
               <User className="h-3.5 w-3.5 text-amber-800" /> Customer
             </span>
-            <p className="text-sm font-semibold text-slate-900 truncate">
+            <p className="text-sm font-semibold text-foreground truncate">
               {complaint.customer_name || "Anonymous Customer"}
             </p>
-            <p className="text-xs text-slate-600 truncate flex items-center gap-1">
-              <Mail className="h-3 w-3 text-slate-400 shrink-0" />
+            <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+              <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
               {complaint.customer_email || "No email provided"}
             </p>
           </div>
 
           {/* Assignee Info */}
-          <div className="p-3 rounded-lg bg-[#faf6f2] border border-[#f0e3d5] space-y-1">
-            <span className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider flex items-center gap-1">
+          <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
+            <span className="text-[11px] font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-1">
               <UserCheck className="h-3.5 w-3.5 text-blue-700" /> Current Assignee
             </span>
             {complaint.assignment ? (
               <div>
-                <p className="text-sm font-semibold text-slate-900 truncate">
+                <p className="text-sm font-semibold text-foreground truncate">
                   {complaint.assignment.employee_name || complaint.assignment.department_name || "Assigned"}
                 </p>
-                <p className="text-xs text-slate-600 capitalize">
+                <p className="text-xs text-muted-foreground capitalize">
                   {complaint.assignment.assignee_type.toLowerCase()}{" "}
                   {complaint.assignment.department_name ? `(${complaint.assignment.department_name})` : ""}
                 </p>
               </div>
             ) : (
               <div>
-                <p className="text-xs text-amber-800 font-bold flex items-center gap-1">
+                <p className="text-xs text-amber-800 dark:text-amber-400 font-bold flex items-center gap-1">
                   <ShieldAlert className="h-3.5 w-3.5 text-amber-600 animate-pulse" /> Unassigned
                 </p>
-                <p className="text-[11px] text-slate-500">Requires Admin routing</p>
+                <p className="text-[11px] text-muted-foreground">Requires Admin routing</p>
               </div>
             )}
           </div>
 
           {/* SLA Target */}
-          <div className="p-3 rounded-lg bg-[#faf6f2] border border-[#f0e3d5] space-y-1">
-            <span className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider flex items-center gap-1">
+          <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
+            <span className="text-[11px] font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-1">
               <Clock className="h-3.5 w-3.5 text-purple-700" /> SLA Target
             </span>
             <div>{renderSlaBadge(complaint)}</div>
             {complaint.sla_due_at && (
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-muted-foreground">
                 Deadline: {new Date(complaint.sla_due_at).toLocaleString()}
               </p>
             )}
           </div>
 
           {/* AI Confidence / Status */}
-          <div className="p-3 rounded-lg bg-[#faf6f2] border border-[#f0e3d5] space-y-1">
-            <span className="text-[11px] font-semibold uppercase text-slate-500 tracking-wider flex items-center gap-1">
+          <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
+            <span className="text-[11px] font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-1">
               <Sparkles className="h-3.5 w-3.5 text-amber-600" /> Groq AI Triage
             </span>
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-foreground">
               {complaint.ai_confidence
                 ? `${Math.round(complaint.ai_confidence * 100)}% Confidence`
                 : "AI Processed"}
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-muted-foreground">
               {complaint.is_correctly_classified ? "Zero-Shot Vector Route" : "Flagged for manual check"}
             </p>
           </div>
@@ -599,22 +599,22 @@ export default function ComplaintDetailPage({
         {/* Left Column (2/3 width): Ticket Content, Groq AI Details & Embedded Communication Thread */}
         <div className="lg:col-span-2 space-y-6">
           {/* Issue Details Card */}
-          <Card className="bg-white border-[#EED9C4] shadow-sm">
-            <CardHeader className="pb-3 border-b border-[#faf6f2]">
-              <CardTitle className="text-base font-semibold text-[#5a3e2b] flex items-center gap-2">
-                <FileText className="h-4 w-4 text-amber-800" />
+          <Card className="bg-card border-border shadow-sm">
+            <CardHeader className="pb-3 border-b border-border">
+              <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                <FileText className="h-4 w-4 text-amber-800 dark:text-amber-500" />
                 Original Complaint Description
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-3">
-              <div className="bg-[#faf6f2] p-4 rounded-md border border-[#f0e3d5] text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+              <div className="bg-muted/40 p-4 rounded-md border border-border text-sm text-foreground whitespace-pre-wrap leading-relaxed">
                 {complaint.description || complaint.title || "No extended description provided by customer."}
               </div>
               {complaint.external_reference_id && (
-                <p className="text-xs text-slate-500 flex items-center gap-1">
-                  <Tag className="h-3.5 w-3.5 text-slate-400" />
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Tag className="h-3.5 w-3.5 text-muted-foreground" />
                   External Ref ID:{" "}
-                  <span className="font-mono font-semibold text-slate-700">{complaint.external_reference_id}</span>
+                  <span className="font-mono font-semibold text-foreground">{complaint.external_reference_id}</span>
                 </p>
               )}
             </CardContent>
@@ -622,60 +622,60 @@ export default function ComplaintDetailPage({
 
           {/* Groq GenAI Summary & AI Draft Card */}
           {complaint.summary && (
-            <Card className="bg-amber-50/70 border-amber-200 shadow-sm">
-              <CardHeader className="pb-2 border-b border-amber-200/80">
+            <Card className="bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 shadow-sm">
+              <CardHeader className="pb-2 border-b border-amber-200/80 dark:border-amber-800">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <CardTitle className="text-sm font-bold text-amber-950 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-amber-600" />
+                  <CardTitle className="text-sm font-bold text-amber-950 dark:text-amber-200 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                     Groq GenAI Intelligence Summary
                   </CardTitle>
-                  <span className="text-[11px] font-semibold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded">
+                  <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/60 border border-amber-300 dark:border-amber-700 px-2 py-0.5 rounded">
                     Sub-200ms LLM Extraction
                   </span>
                 </div>
               </CardHeader>
-              <CardContent className="pt-3 space-y-3 text-xs text-amber-950">
+              <CardContent className="pt-3 space-y-3 text-xs text-amber-950 dark:text-amber-200">
                 <div>
-                  <h4 className="font-bold text-amber-900">Executive Summary:</h4>
-                  <p className="mt-0.5 text-amber-900/90 leading-normal">{complaint.summary}</p>
+                  <h4 className="font-bold text-amber-900 dark:text-amber-300">Executive Summary:</h4>
+                  <p className="mt-0.5 text-amber-900/90 dark:text-amber-200/90 leading-normal">{complaint.summary}</p>
                 </div>
 
                 {complaint.ai_reasoning && (
                   <div>
-                    <h4 className="font-bold text-amber-900">AI Routing & Priority Reasoning:</h4>
-                    <p className="mt-0.5 text-amber-900/90 leading-normal">{complaint.ai_reasoning}</p>
+                    <h4 className="font-bold text-amber-900 dark:text-amber-300">AI Routing & Priority Reasoning:</h4>
+                    <p className="mt-0.5 text-amber-900/90 dark:text-amber-200/90 leading-normal">{complaint.ai_reasoning}</p>
                   </div>
                 )}
 
                 {complaint.suggested_reply && (
-                  <div className="bg-white p-3 rounded border border-amber-300/80 space-y-2">
+                  <div className="bg-card p-3 rounded border border-amber-300/80 dark:border-amber-800 space-y-2">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1">
-                        <Mail className="h-3.5 w-3.5 text-amber-700" /> AI Suggested Resolution Reply:
+                      <h4 className="font-bold text-foreground text-xs flex items-center gap-1">
+                        <Mail className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" /> AI Suggested Resolution Reply:
                       </h4>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 text-[10px] text-amber-900 hover:bg-amber-100"
+                        className="h-6 text-[10px] text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40"
                         onClick={insertSuggestedReply}
                       >
                         <Copy className="h-3 w-3 mr-1" /> Use in Response Box
                       </Button>
                     </div>
-                    <p className="text-xs text-slate-700 italic bg-amber-50/50 p-2 rounded border border-amber-200">
+                    <p className="text-xs text-foreground italic bg-amber-50/50 dark:bg-amber-950/40 p-2 rounded border border-amber-200 dark:border-amber-800">
                       "{complaint.suggested_reply}"
                     </p>
                   </div>
                 )}
 
                 {/* AI Accuracy Feedback */}
-                <div className="pt-2 border-t border-amber-200 flex items-center justify-between flex-wrap gap-2 text-[11px]">
-                  <span className="font-semibold text-amber-900">Human-in-the-Loop AI Feedback:</span>
+                <div className="pt-2 border-t border-amber-200 dark:border-amber-800 flex items-center justify-between flex-wrap gap-2 text-[11px]">
+                  <span className="font-semibold text-amber-900 dark:text-amber-200">Human-in-the-Loop AI Feedback:</span>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-6 text-[10px] bg-white border-amber-300 hover:bg-emerald-50 text-slate-700"
+                      className="h-6 text-[10px] bg-background border-border hover:bg-muted text-foreground"
                       onClick={() =>
                         submitFeedbackMutation.mutate({
                           complaintId: complaint.id,
@@ -689,7 +689,7 @@ export default function ComplaintDetailPage({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-6 text-[10px] bg-white border-amber-300 hover:bg-red-50 text-slate-700"
+                      className="h-6 text-[10px] bg-background border-border hover:bg-muted text-foreground"
                       onClick={() =>
                         submitFeedbackMutation.mutate({
                           complaintId: complaint.id,
@@ -707,18 +707,18 @@ export default function ComplaintDetailPage({
           )}
 
           {/* Embedded Full Timeline & Message Thread */}
-          <Card className="bg-white border-[#EED9C4] shadow-sm">
-            <CardHeader className="pb-3 border-b border-[#faf6f2]">
+          <Card className="bg-card border-border shadow-sm">
+            <CardHeader className="pb-3 border-b border-border">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <CardTitle className="text-base font-semibold text-[#5a3e2b]">
+                  <CardTitle className="text-base font-semibold text-foreground">
                     Live Conversation Thread & Internal Notes
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Collaborate with staff using private notes or communicate directly with the customer.
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="bg-[#faf6f2] text-xs">
+                <Badge variant="outline" className="bg-muted text-xs">
                   {messages.length} Message{messages.length === 1 ? "" : "s"}
                 </Badge>
               </div>
@@ -727,58 +727,58 @@ export default function ComplaintDetailPage({
               {/* Message List */}
               <div className="space-y-3 min-h-[220px] max-h-[450px] overflow-y-auto pr-1">
                 {isMessagesLoading ? (
-                  <div className="text-center py-12 text-xs text-slate-400">
+                  <div className="text-center py-12 text-xs text-muted-foreground">
                     Loading conversation messages...
                   </div>
                 ) : messages.length === 0 ? (
-                  <div className="text-center py-12 text-xs text-slate-400 bg-[#faf6f2] rounded-md border border-dashed border-[#dfc7ae]">
+                  <div className="text-center py-12 text-xs text-muted-foreground bg-muted/30 rounded-md border border-dashed border-border">
                     No messages or notes posted yet. Start the conversation below.
                   </div>
                 ) : (
                   messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`p-3.5 rounded-lg border text-xs text-slate-800 space-y-1.5 transition-all ${
+                      className={`p-3.5 rounded-lg border text-xs text-foreground space-y-1.5 transition-all ${
                         msg.is_internal
-                          ? "bg-amber-50/90 border-amber-300"
+                          ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800"
                           : msg.sender_type === "CUSTOMER"
-                          ? "bg-blue-50/90 border-blue-200"
-                          : "bg-slate-50 border-slate-200"
+                          ? "bg-blue-50/90 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800"
+                          : "bg-muted/50 border-border"
                       }`}
                     >
                       <div className="flex items-center justify-between font-semibold">
                         <div className="flex items-center gap-2">
                           {msg.is_internal ? (
-                            <Badge className="bg-amber-200 text-amber-900 hover:bg-amber-200 text-[10px] py-0 px-2 font-bold">
+                            <Badge className="bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 hover:bg-amber-200 text-[10px] py-0 px-2 font-bold">
                               <Lock className="h-2.5 w-2.5 mr-1" /> INTERNAL NOTE
                             </Badge>
                           ) : (
-                            <span className="text-slate-900 font-bold flex items-center gap-1">
-                              <User className="h-3 w-3 text-slate-500" />
+                            <span className="text-foreground font-bold flex items-center gap-1">
+                              <User className="h-3 w-3 text-muted-foreground" />
                               {msg.sender_name || msg.sender_type}
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-slate-400 font-mono">
+                        <span className="text-[10px] text-muted-foreground font-mono">
                           {new Date(msg.created_at).toLocaleString()}
                         </span>
                       </div>
-                      <p className="whitespace-pre-wrap text-slate-700 leading-relaxed text-xs">
+                      <p className="whitespace-pre-wrap text-muted-foreground leading-relaxed text-xs">
                         {msg.body}
                       </p>
 
                       {/* File Attachments */}
                       {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/70 mt-2">
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-border mt-2">
                           {msg.attachments.map((att, idx) => (
                             <a
                               key={idx}
                               href={att.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center text-[10px] bg-white border px-2.5 py-1 rounded-md text-blue-600 hover:underline gap-1 shadow-xs"
+                              className="inline-flex items-center text-[10px] bg-background border-border border px-2.5 py-1 rounded-md text-primary hover:underline gap-1 shadow-xs"
                             >
-                              <Paperclip className="h-3 w-3 text-blue-500" />
+                              <Paperclip className="h-3 w-3 text-muted-foreground" />
                               {att.name || `Attachment ${idx + 1}`}
                             </a>
                           ))}
@@ -790,13 +790,13 @@ export default function ComplaintDetailPage({
               </div>
 
               {/* Live Interactive Composer */}
-              <div className="space-y-3 pt-3 border-t border-[#dfc7ae]">
+              <div className="space-y-3 pt-3 border-t border-border">
                 <Tabs
                   defaultValue="public"
                   onValueChange={(val) => setIsInternalNote(val === "internal")}
                 >
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <TabsList className="bg-[#e2d5c5]">
+                    <TabsList className="bg-muted">
                       <TabsTrigger value="public" className="text-xs">
                         Public Customer Reply
                       </TabsTrigger>
@@ -805,8 +805,8 @@ export default function ComplaintDetailPage({
                       </TabsTrigger>
                     </TabsList>
 
-                    <label className="cursor-pointer inline-flex items-center text-xs text-[#5a3e2b] hover:underline font-medium gap-1 bg-[#faf6f2] px-2.5 py-1 rounded border border-[#dfc7ae]">
-                      <Paperclip className="h-3.5 w-3.5 text-amber-800" />
+                    <label className="cursor-pointer inline-flex items-center text-xs text-foreground hover:underline font-medium gap-1 bg-muted/40 px-2.5 py-1 rounded border border-border">
+                      <Paperclip className="h-3.5 w-3.5 text-amber-800 dark:text-amber-500" />
                       {uploading ? "Uploading..." : "Attach File (ImageKit)"}
                       <input
                         type="file"
@@ -822,20 +822,20 @@ export default function ComplaintDetailPage({
                       placeholder="Type response to customer..."
                       value={messageBody}
                       onChange={(e) => setMessageBody(e.target.value)}
-                      className="bg-white border-[#dfc7ae] min-h-[90px] text-xs focus:ring-[#c9a382]"
+                      className="bg-background border-border min-h-[90px] text-xs focus:ring-ring"
                     />
                   </TabsContent>
 
                   <TabsContent value="internal" className="pt-2">
-                    <div className="bg-amber-100/60 p-2 rounded text-[11px] text-amber-900 mb-2 flex items-center gap-1.5">
-                      <ShieldAlert className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+                    <div className="bg-amber-100/60 dark:bg-amber-950/40 p-2 rounded text-[11px] text-amber-900 dark:text-amber-200 mb-2 flex items-center gap-1.5">
+                      <ShieldAlert className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
                       Private internal notes are visible only to logged-in support agents and admins.
                     </div>
                     <Textarea
                       placeholder="Type private staff investigation note..."
                       value={messageBody}
                       onChange={(e) => setMessageBody(e.target.value)}
-                      className="bg-amber-50/60 border-amber-300 min-h-[90px] text-xs focus:ring-amber-400"
+                      className="bg-amber-50/60 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800 min-h-[90px] text-xs text-foreground focus:ring-amber-400"
                     />
                   </TabsContent>
                 </Tabs>
@@ -846,7 +846,7 @@ export default function ComplaintDetailPage({
                     {attachments.map((att, i) => (
                       <span
                         key={i}
-                        className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] flex items-center gap-1 border border-blue-200"
+                        className="bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded text-[10px] flex items-center gap-1 border border-blue-200 dark:border-blue-800"
                       >
                         <Paperclip className="h-3 w-3" /> {att.name}
                       </span>
@@ -859,10 +859,10 @@ export default function ComplaintDetailPage({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-xs text-amber-900 border-amber-300 bg-amber-50 hover:bg-amber-100"
+                      className="text-xs text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60"
                       onClick={insertSuggestedReply}
                     >
-                      <Sparkles className="h-3.5 w-3.5 mr-1 text-amber-600" />
+                      <Sparkles className="h-3.5 w-3.5 mr-1 text-amber-600 dark:text-amber-400" />
                       Insert AI Reply
                     </Button>
                   ) : (
@@ -872,7 +872,7 @@ export default function ComplaintDetailPage({
                   <Button
                     onClick={handleSendMessage}
                     disabled={createMessageMutation.isPending || !messageBody.trim()}
-                    className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-[#faf6f2] text-xs h-9 px-4"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-9 px-4"
                   >
                     <Send className="h-3.5 w-3.5 mr-1.5" />
                     {isInternalNote ? "Save Internal Note" : "Post Public Reply"}
@@ -886,15 +886,15 @@ export default function ComplaintDetailPage({
         {/* Right Column (1/3 width): Ticket Management & System Details */}
         <div className="space-y-6">
           {/* Quick Status Control Panel */}
-          <Card className="bg-white border-[#EED9C4] shadow-sm">
-            <CardHeader className="pb-3 border-b border-[#faf6f2]">
-              <CardTitle className="text-sm font-bold text-[#5a3e2b]">
+          <Card className="bg-card border-border shadow-sm">
+            <CardHeader className="pb-3 border-b border-border">
+              <CardTitle className="text-sm font-bold text-foreground">
                 Ticket Lifecycle & Actions
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-3">
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700">Change Status:</label>
+                <label className="text-xs font-semibold text-foreground">Change Status:</label>
                 <div className="grid grid-cols-1 gap-2">
                   <Button
                     variant={complaint.status === "open" ? "default" : "outline"}
@@ -929,13 +929,13 @@ export default function ComplaintDetailPage({
                 </div>
               </div>
 
-              <hr className="border-[#f0e3d5] my-2" />
+              <hr className="border-border my-2" />
 
               <div className="space-y-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full bg-white border-[#dfc7ae] text-xs justify-start text-slate-800"
+                  className="w-full bg-background border-border text-xs justify-start text-foreground"
                   onClick={() => setShowAssignDialog(true)}
                   disabled={isDeleted}
                 >
@@ -958,50 +958,50 @@ export default function ComplaintDetailPage({
           </Card>
 
           {/* SLA Target Breakdown Card */}
-          <Card className="bg-white border-[#EED9C4] shadow-sm">
-            <CardHeader className="pb-3 border-b border-[#faf6f2]">
-              <CardTitle className="text-sm font-bold text-[#5a3e2b] flex items-center gap-1.5">
+          <Card className="bg-card border-border shadow-sm">
+            <CardHeader className="pb-3 border-b border-border">
+              <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
                 <Clock className="h-4 w-4 text-purple-700" />
                 SLA Policy Matrix
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 text-xs space-y-2.5">
-              <div className="flex justify-between items-center py-1 border-b border-slate-100">
-                <span className="font-semibold text-red-700">URGENT</span>
-                <span className="text-slate-600">2 Hours Target</span>
+              <div className="flex justify-between items-center py-1 border-b border-border">
+                <span className="font-semibold text-red-700 dark:text-red-400">URGENT</span>
+                <span className="text-muted-foreground">2 Hours Target</span>
               </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-100">
-                <span className="font-semibold text-amber-700">HIGH</span>
-                <span className="text-slate-600">6 Hours Target</span>
+              <div className="flex justify-between items-center py-1 border-b border-border">
+                <span className="font-semibold text-amber-700 dark:text-amber-400">HIGH</span>
+                <span className="text-muted-foreground">6 Hours Target</span>
               </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-100">
-                <span className="font-semibold text-blue-700">MEDIUM</span>
-                <span className="text-slate-600">24 Hours Target</span>
+              <div className="flex justify-between items-center py-1 border-b border-border">
+                <span className="font-semibold text-blue-700 dark:text-blue-400">MEDIUM</span>
+                <span className="text-muted-foreground">24 Hours Target</span>
               </div>
               <div className="flex justify-between items-center py-1">
-                <span className="font-semibold text-slate-700">LOW</span>
-                <span className="text-slate-600">48 Hours Target</span>
+                <span className="font-semibold text-foreground">LOW</span>
+                <span className="text-muted-foreground">48 Hours Target</span>
               </div>
             </CardContent>
           </Card>
 
           {/* System Metadata Card */}
-          <Card className="bg-white border-[#EED9C4] shadow-sm">
-            <CardHeader className="pb-3 border-b border-[#faf6f2]">
-              <CardTitle className="text-sm font-bold text-[#5a3e2b]">
+          <Card className="bg-card border-border shadow-sm">
+            <CardHeader className="pb-3 border-b border-border">
+              <CardTitle className="text-sm font-bold text-foreground">
                 System Metadata
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-3 text-xs space-y-2 text-slate-600 font-mono">
+            <CardContent className="pt-3 text-xs space-y-2 text-muted-foreground font-mono">
               <div>
-                <span className="text-slate-400 font-sans block text-[11px]">Tenant ID:</span>
-                <span className="truncate block font-semibold text-slate-800">
+                <span className="text-muted-foreground font-sans block text-[11px]">Tenant ID:</span>
+                <span className="truncate block font-semibold text-foreground">
                   {complaint.tenant_id}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 font-sans block text-[11px]">Full Ticket UUID:</span>
-                <span className="break-all font-semibold text-slate-800">{complaint.id}</span>
+                <span className="text-muted-foreground font-sans block text-[11px]">Full Ticket UUID:</span>
+                <span className="break-all font-semibold text-foreground">{complaint.id}</span>
               </div>
             </CardContent>
           </Card>
@@ -1029,9 +1029,9 @@ export default function ComplaintDetailPage({
 
       {/* Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent className="bg-[#faf6f2]">
+        <DialogContent className="bg-background border-border">
           <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Update Complaint Status</DialogTitle>
+            <DialogTitle className="text-foreground">Update Complaint Status</DialogTitle>
             <DialogDescription>
               Select new status for ticket #{complaint.id.substring(0, 7)}
             </DialogDescription>
@@ -1055,7 +1055,7 @@ export default function ComplaintDetailPage({
             </Button>
             <Button
               variant={complaint.status === "resolved" ? "default" : "outline"}
-              className="w-full bg-[#c9a382] hover:bg-[#b08e70] text-xs"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs"
               onClick={() => handleStatusUpdate("resolved")}
               disabled={complaint.status === "resolved"}
             >
@@ -1067,9 +1067,9 @@ export default function ComplaintDetailPage({
 
       {/* Delete Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="bg-[#faf6f2]">
+        <DialogContent className="bg-background border-border">
           <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Soft Delete Complaint</DialogTitle>
+            <DialogTitle className="text-foreground">Soft Delete Complaint</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this complaint? Load counters will automatically recalibrate.
             </DialogDescription>
@@ -1087,9 +1087,9 @@ export default function ComplaintDetailPage({
 
       {/* Restore Dialog */}
       <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
-        <DialogContent className="bg-[#faf6f2]">
+        <DialogContent className="bg-background border-border">
           <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Restore Complaint</DialogTitle>
+            <DialogTitle className="text-foreground">Restore Complaint</DialogTitle>
             <DialogDescription>
               Restore complaint #{complaint.id.substring(0, 7)} back to active queue?
             </DialogDescription>

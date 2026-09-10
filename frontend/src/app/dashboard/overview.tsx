@@ -60,10 +60,10 @@ export function Overview() {
     <div className="space-y-6">
       {/* Realtime Service Performance Indicators */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-white border-[#EED9C4]">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Mean Time to Resolution (MTTR)</CardTitle>
-            <Clock className="h-4 w-4 text-[#c9a382]" />
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -73,7 +73,7 @@ export function Overview() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-[#EED9C4]">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">SLA Compliance Rate</CardTitle>
             <ShieldCheck className="h-4 w-4 text-emerald-600" />
@@ -86,7 +86,7 @@ export function Overview() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-[#EED9C4]">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Groq AI Classification Accuracy</CardTitle>
             <Brain className="h-4 w-4 text-purple-600" />
@@ -102,7 +102,7 @@ export function Overview() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Ticket Volume Trend Chart */}
-        <Card className="bg-white border-[#EED9C4]">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base font-medium">Ingested Ticket Volume Trend</CardTitle>
             <CardDescription>
@@ -118,11 +118,11 @@ export function Overview() {
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="name" stroke="#888888" fontSize={12} />
                     <YAxis stroke="#888888" fontSize={12} allowDecimals={false} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="complaints" stroke="#3d2a1c" strokeWidth={2} activeDot={{ r: 6 }} />
+                    <Tooltip contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)" }} />
+                    <Line type="monotone" dataKey="complaints" stroke="var(--primary)" strokeWidth={2} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -131,7 +131,7 @@ export function Overview() {
         </Card>
 
         {/* Resolution Speed by Priority Chart */}
-        <Card className="bg-white border-[#EED9C4]">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base font-medium">MTTR Resolution Speed by Priority</CardTitle>
             <CardDescription>
@@ -147,11 +147,11 @@ export function Overview() {
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={mttrData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="priority" stroke="#888888" fontSize={12} />
                     <YAxis stroke="#888888" fontSize={12} />
-                    <Tooltip />
-                    <Bar dataKey="Mean Time to Resolution (Hours)" fill="#c9a382" radius={[4, 4, 0, 0]} />
+                    <Tooltip contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)" }} />
+                    <Bar dataKey="Mean Time to Resolution (Hours)" fill="var(--ring)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

@@ -1,0 +1,125 @@
+When asked: "How do you handle background jobs, scaling, and server lifecycle in     
+  Node.js?"
+  
+  │ Sample Answer:
+  │
+  │ "In ServiceFlow, we designed the backend to be cloud-native and horizontally       
+  │ scalable:
+  │
+  │ 1. Graceful Shutdown: When a container is terminated or deployed (receiving        
+  SIGTERM),
+  │ we don't abruptly kill the process. We stop our cron workers, close active         
+  WebSocket
+  │ connections, stop accepting new HTTP requests, and wait for active database queries
+  │ to finish before closing the Prisma connection pool and Redis client. We also set a
+  │ 10-second timeout fail-safe.
+  │ 2. Multi-Instance Cron Locking: Because we run background SLA auditing on a        
+  schedule,
+  │ running multiple backend replicas could lead to duplicate cron execution and       
+  │ duplicate customer alert emails. We solved this by implementing a distributed mutex
+  │ lock in Redis using SET key value EX 240 NX. When the cron fires, only the replica 
+  │ that successfully acquires the atomic lock executes the SLA audit, while peer      
+  │ replicas gracefully skip the run.
+
+
+When asked: "How do you design authentication and authorization for external API     
+  integrations versus internal users?"
+  
+  │ Sample Answer:
+  │
+  │ "In ServiceFlow, we separate human interactive sessions (JWT cookies) from         
+  │ programmatic ingestion (Bearer API Keys):
+  │
+  │ 1. Principle of Least Privilege: An external API key should never impersonate a    
+  │ human administrator. Instead of assigning a fake ADMIN role to API requests, we    
+  │ attach a dedicated req.apiKey identity with scoped permissions (e.g., permissions: 
+  │ ['complaints:write']).
+  │ 2. RBAC Isolation: Internal administrative routes strictly enforce
+  │ requireRole('ADMIN'). If an external API key attempts to call an admin endpoint,   
+  the
+  │ authorization guard immediately rejects it with a 403 Forbidden because its role is
+  │ 'API_KEY', not 'ADMIN'.
+  │ 3. RFC 7807 Error Consistency: All authentication failures return standardized RFC 
+  │ 7807 Problem Details (application/problem+json) with standard fields (status, title,
+  │ detail), making external integrations predictable and easy for third-party         
+  │ developers to debug.
+
+When asked: "How do you design high-throughput ingestion pipelines and handle        
+  database connections when integrating third-party AI/LLMs?"
+  
+  │ Sample Answer:
+  │
+  │ "In ServiceFlow, we designed the ticket ingestion pipeline with high throughput and
+  │ resiliency in mind:
+  │
+  │ 1. Transaction Lifecycle Isolation: A major anti-pattern in backend systems is     
+  │ holding an open database transaction while awaiting external network I/O (like an  
+  │ LLM API). Because LLM calls can take 2–3 seconds, holding a DB connection causes   
+  │ connection pool exhaustion under modest concurrency. We resolve this by performing 
+  │ LLM zero-shot classification prior to opening our database transaction, ensuring   
+  our
+  │ db.$transaction only performs fast atomic database operations and releases the     
+  │ connection in under 10 milliseconds.
+  │ 2. Graceful Fallback Routing: To ensure 100% ingestion availability, our LLM       
+  │ integration is wrapped in a fallback handler. If the AI provider returns a 429 rate
+  │ limit or times out, our system automatically falls back to rule-based keyword      
+  │ matching and sentiment heuristics. The ticket is ingested, prioritized, and        
+  assigned
+  │ to the least-burdened agent without dropping the customer's complaint.             
+  │ 3. Scalable Pagination: For listing endpoints, we implement server-side skip/take  
+  │ pagination with SQL indexing, rather than loading unbounded datasets into Node.js  
+  │ process memory."
+
+ When asked: "How do you identify and eliminate N+1 database bottlenecks and handle   
+  transactional side effects (like WebSockets)?"
+  
+  │ Sample Answer:
+  │
+  │ "In ServiceFlow, we implemented two important database and distributed system      
+  │ optimizations:
+  │
+  │ 1. Eliminating N+1 Queries in Dynamic Load Balancing: Instead of pulling all       
+  │ department employees and firing N parallel COUNT(*) queries to calculate real-time 
+  │ queue depth, we leverage a persisted load column on the Employee model. Finding the
+  │ least-loaded agent becomes a single ORDER BY load ASC LIMIT 1 query, reducing      
+  │ database round-trips from O(N) to O(1).
+  │ 2. Transactional Event Boundaries: A common bug in real-time full-stack apps is    
+  │ firing WebSocket notifications inside an uncommitted database transaction. If the  
+  │ transaction fails and rolls back, the database state reverts, but connected clients
+  │ have already rendered the phantom state. We ensure all WebSocket emissions are     
+  │ collected in memory and dispatched only after db.$transaction successfully commits.
+
+"How do you handle reporting, analytics, and metrics aggregation in your backend   
+  │ services without causing performance bottlenecks?"
+  
+  ### Your Answer (Script & Key Points):
+  
+  │ 1. The Challenge (Problem Statement):
+  │ "In earlier iterations of our analytics endpoint, the backend pulled all tenant    
+  │ complaints into Node.js using Prisma ORM and computed MTTR (Mean Time to           
+  Resolution)
+  │ and SLA compliance rates in memory using .filter() and .reduce(). While that worked
+  │ with small sample datasets, in production with large volumes of tickets, this      
+  causes
+  │ severe memory bloat, high GC pause times, network saturation, and blocks the Node. 
+  js
+  │ event loop."
+  
+  │ 2. The Solution (Database Pushdown):
+  │ *"I refactored the analytics pipeline using Database Pushdown. Instead of bringing 
+  │ data to the code, we pushed the computational logic directly to PostgreSQL. I      
+  │ replaced the in-memory array operations with native SQL aggregations:
+  │
+  │ • Used AVG(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600.0) to compute Mean
+  │ Time to Resolution directly in hours.
+  │ • Used COUNT(*) FILTER (WHERE ...) clauses to compute open, resolved, breached, and
+  │ compliance rates in a single indexed pass.
+  │ • Handled MTTR breakdowns per department and priority using native GROUP BY and    
+  LEFT
+  │ JOIN operations."*
+  
+  │ 3. The Results (Impact):
+  │ "This changed our analytics memory footprint in Node.js from O(N) to O(1). Instead 
+  │ of transferring megabytes of raw ticket records over the wire and parsing dates in 
+  │ JavaScript, the database returns a tiny payload (< 1 KB) with precomputed floats,  
+  │ dropping response latency from several hundred milliseconds to sub-15ms."          

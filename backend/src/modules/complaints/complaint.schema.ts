@@ -37,3 +37,15 @@ export const AssignDepartmentSchema = z.object({
   complaintId: z.string().uuid("Invalid complaint ID format"),
   departmentId: z.string().uuid("Invalid department ID format"),
 });
+
+export const GetAllComplaintsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  skip: z.coerce.number().int().nonnegative().optional(),
+  take: z.coerce.number().int().positive().max(100).optional(),
+  status: z.string().optional(),
+  priority: z.string().optional(),
+  search: z.string().optional(),
+  paginated: z.string().optional(),
+});
+

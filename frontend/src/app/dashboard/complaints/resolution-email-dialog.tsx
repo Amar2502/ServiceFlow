@@ -55,9 +55,9 @@ export function ResolutionEmailDialog({ complaint, open, onOpenChange }: Resolut
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl bg-[#faf6f2]">
+      <DialogContent className="max-w-xl bg-background border-border">
         <DialogHeader>
-          <DialogTitle className="text-[#5a3e2b] flex items-center gap-2">
+          <DialogTitle className="text-foreground flex items-center gap-2">
             <MailCheck className="h-5 w-5 text-emerald-600" />
             Send Official Resolution Email
           </DialogTitle>
@@ -68,21 +68,21 @@ export function ResolutionEmailDialog({ complaint, open, onOpenChange }: Resolut
 
         {/* AI Suggested Response Banner */}
         {complaint.suggested_reply && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-900 flex items-start gap-2 my-2">
-            <Sparkles className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md p-3 text-xs text-emerald-900 dark:text-emerald-200 flex items-start gap-2 my-2">
+            <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
             <div>
-              <strong className="font-semibold text-emerald-900">Groq AI Pre-Drafted Response:</strong>
-              <p className="text-emerald-800 mt-0.5">Pre-populated into the response editor below. You may edit or send as-is.</p>
+              <strong className="font-semibold text-emerald-900 dark:text-emerald-200">Groq AI Pre-Drafted Response:</strong>
+              <p className="text-emerald-800 dark:text-emerald-300 mt-0.5">Pre-populated into the response editor below. You may edit or send as-is.</p>
             </div>
           </div>
         )}
 
         <div className="space-y-3 mt-2">
-          <label className="text-xs font-semibold text-slate-700">Official Resolution Message to Customer:</label>
+          <label className="text-xs font-semibold text-foreground">Official Resolution Message to Customer:</label>
           <Textarea
             value={resolutionMessage}
             onChange={(e) => setResolutionMessage(e.target.value)}
-            className="bg-white border-[#dfc7ae] min-h-[140px] text-xs leading-relaxed"
+            className="bg-background border-border min-h-[140px] text-xs leading-relaxed"
           />
 
           <div className="flex justify-end gap-2 pt-2">

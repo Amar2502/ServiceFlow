@@ -1,6 +1,12 @@
 import { Prisma, PrismaClient } from "../../generated/prisma";
 import { EmployeesSocket } from "../employees/employees.socket";
 
+export interface SyncLoadResult {
+  employeeId: string;
+  tenantId: string | null;
+  load: number;
+}
+
 export class WorkloadService {
   /**
    * Recalculates and updates the exact active load counter for an employee to prevent counter drift.
@@ -8,8 +14,9 @@ export class WorkloadService {
    */
   static async syncEmployeeLoad(
     tx: Prisma.TransactionClient | PrismaClient,
-    employeeId: string
-  ): Promise<number> {
+    employeeId: string,
+    emitSocketImmediately = false
+  ): Promise<SyncLoadResult> {
     const employee = await tx.employee.findUnique({
       where: { id: employeeId },
       select: { tenantId: true },
@@ -30,81 +37,86 @@ export class WorkloadService {
       data: { load: activeCount },
     });
 
-    if (employee?.tenantId) {
-      EmployeesSocket.emitLoadUpdated(employee.tenantId, {
+    const result: SyncLoadResult = {
+      employeeId,
+      tenantId: employee?.tenantId || null,
+      load: activeCount,
+    };
+
+    if (emitSocketImmediately && result.tenantId) {
+      EmployeesSocket.emitLoadUpdated(result.tenantId, {
         employeeId,
         load: activeCount,
       });
     }
 
-    return activeCount;
+    return result;
   }
 
   /**
-   * Syncs load for all employees associated with a complaint (e.g. after status change or soft delete/restore)
+   * Safely broadcasts load updates over WebSockets after the database transaction has successfully committed.
    */
-  static async syncComplaintEmployeeLoads(
-    tx: Prisma.TransactionClient | PrismaClient,
-    complaintId: string
-  ): Promise<void> {
-    const assignments = await tx.assignment.findMany({
-      where: { complaintId },
-      select: { employeeId: true },
-    });
-
-    for (const a of assignments) {
-      if (a.employeeId) {
-        await this.syncEmployeeLoad(tx, a.employeeId);
+  static emitLoadUpdates(loads: (SyncLoadResult | null | undefined)[]): void {
+    for (const item of loads) {
+      if (item && item.tenantId) {
+        EmployeesSocket.emitLoadUpdated(item.tenantId, {
+          employeeId: item.employeeId,
+          load: item.load,
+        });
       }
     }
   }
 
   /**
+   * Syncs load for all employees associated with a complaint (e.g. after status change, assignment, or soft delete/restore).
+   */
+  static async syncComplaintEmployeeLoads(
+    tx: Prisma.TransactionClient | PrismaClient,
+    complaintId: string,
+    emitSocketImmediately = false
+  ): Promise<SyncLoadResult[]> {
+    const assignments = await tx.assignment.findMany({
+      where: { complaintId },
+      select: { employeeId: true },
+    });
+
+    const results: SyncLoadResult[] = [];
+    for (const a of assignments) {
+      if (a.employeeId) {
+        const res = await this.syncEmployeeLoad(tx, a.employeeId, emitSocketImmediately);
+        results.push(res);
+      }
+    }
+    return results;
+  }
+
+  /**
    * Dynamic Workload Balancer Algorithm:
-   * Selects the active employee in the department with the lowest REAL-TIME active ticket count.
-   * Eliminates premature counter drift by relying on atomic syncEmployeeLoad after assignment creation.
+   * Selects the active employee in the target department with the lowest active load.
+   * Single fast indexed query: O(1) database trip leveraging the persisted `Employee.load` counter.
+   * Eliminates the N+1 query bottleneck.
    */
   static async selectLeastLoadedEmployee(
-    tx: Prisma.TransactionClient,
+    tx: Prisma.TransactionClient | PrismaClient,
     tenantId: string,
     departmentId: string
   ) {
-    const employees = await tx.employee.findMany({
+    const leastLoaded = await tx.employee.findFirst({
       where: {
         tenantId,
         departmentId,
         deletedAt: null,
       },
+      orderBy: {
+        load: "asc",
+      },
       include: {
         user: true,
+        department: true,
       },
     });
 
-    if (employees.length === 0) {
-      return null;
-    }
-
-    // Calculate real-time active load per employee from assignments table
-    const employeesWithLoad = await Promise.all(
-      employees.map(async (emp) => {
-        const activeCount = await tx.assignment.count({
-          where: {
-            employeeId: emp.id,
-            complaint: {
-              status: { in: ["open", "in_progress"] },
-              deletedAt: null,
-            },
-          },
-        });
-        return { employee: emp, activeLoad: activeCount };
-      })
-    );
-
-    // Sort ascending by real-time active load
-    employeesWithLoad.sort((a, b) => a.activeLoad - b.activeLoad);
-    const selected = employeesWithLoad[0];
-
-    return selected.employee;
+    return leastLoaded || null;
   }
 
   /**
@@ -237,3 +249,4 @@ export class WorkloadService {
     };
   }
 }
+

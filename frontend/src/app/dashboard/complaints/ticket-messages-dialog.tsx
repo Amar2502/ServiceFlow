@@ -101,30 +101,30 @@ export function TicketMessagesDialog({ complaint, open, onOpenChange }: TicketMe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl bg-[#faf6f2] max-h-[90vh] flex flex-col overflow-hidden">
-        <DialogHeader className="pb-2 border-b border-[#dfc7ae]">
+      <DialogContent className="max-w-3xl bg-background border-border max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="pb-2 border-b border-border">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <DialogTitle className="text-[#5a3e2b] text-xl flex items-center gap-2">
+              <DialogTitle className="text-foreground text-xl flex items-center gap-2">
                 Ticket #{complaint.id.substring(0, 7)} — {complaint.title}
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500 mt-1">
+              <DialogDescription className="text-xs text-muted-foreground mt-1">
                 Customer: {complaint.customer_name} ({complaint.customer_email || "No email"})
               </DialogDescription>
             </div>
-            <Badge className="bg-[#3d2a1c] text-[#faf6f2]">{complaint.priority} PRIORITY</Badge>
+            <Badge className="bg-primary text-primary-foreground">{complaint.priority} PRIORITY</Badge>
           </div>
         </DialogHeader>
 
         {/* AI Insight Box & Agent Feedback Loop */}
         {complaint.summary && (
-          <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-900 space-y-2 my-2">
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3 text-xs text-amber-900 dark:text-amber-200 space-y-2 my-2">
             <div className="flex items-start gap-2">
-              <Sparkles className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <strong className="font-semibold text-amber-900">Groq AI Triage Summary:</strong> {complaint.summary}
+                <strong className="font-semibold text-amber-900 dark:text-amber-200">Groq AI Triage Summary:</strong> {complaint.summary}
                 {complaint.ai_reasoning && (
-                  <p className="text-amber-800/90 mt-1">
+                  <p className="text-amber-800/90 dark:text-amber-300 mt-1">
                     <strong>Reasoning:</strong> {complaint.ai_reasoning}
                   </p>
                 )}
@@ -132,13 +132,13 @@ export function TicketMessagesDialog({ complaint, open, onOpenChange }: TicketMe
             </div>
 
             {/* Human-in-the-Loop Feedback Controls */}
-            <div className="flex items-center justify-between pt-2 border-t border-amber-200/80 text-[11px]">
-              <span className="font-semibold text-amber-900">AI Classification Accuracy Feedback:</span>
+            <div className="flex items-center justify-between pt-2 border-t border-amber-200/80 dark:border-amber-800 text-[11px]">
+              <span className="font-semibold text-amber-900 dark:text-amber-200">AI Classification Accuracy Feedback:</span>
               <div className="flex items-center gap-1.5">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-6 text-[10px] bg-white border-amber-300 hover:bg-emerald-50 text-slate-700"
+                  className="h-6 text-[10px] bg-background border-border hover:bg-muted text-foreground"
                   onClick={() => submitFeedbackMutation.mutate({ complaintId, isCorrectlyClassified: true })}
                   disabled={submitFeedbackMutation.isPending}
                 >
@@ -147,7 +147,7 @@ export function TicketMessagesDialog({ complaint, open, onOpenChange }: TicketMe
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-6 text-[10px] bg-white border-amber-300 hover:bg-red-50 text-slate-700"
+                  className="h-6 text-[10px] bg-background border-border hover:bg-muted text-foreground"
                   onClick={() => submitFeedbackMutation.mutate({ complaintId, isCorrectlyClassified: false })}
                   disabled={submitFeedbackMutation.isPending}
                 >
@@ -159,51 +159,51 @@ export function TicketMessagesDialog({ complaint, open, onOpenChange }: TicketMe
         )}
 
         {/* Conversation Thread */}
-        <div className="flex-1 overflow-y-auto space-y-3 p-2 bg-white rounded-md border border-[#EED9C4] min-h-[250px] max-h-[350px]">
+        <div className="flex-1 overflow-y-auto space-y-3 p-2 bg-card rounded-md border border-border min-h-[250px] max-h-[350px]">
           {isLoading ? (
-            <div className="text-center py-10 text-xs text-slate-400">Loading conversation thread...</div>
+            <div className="text-center py-10 text-xs text-muted-foreground">Loading conversation thread...</div>
           ) : messages.length === 0 ? (
-            <div className="text-center py-10 text-xs text-slate-400">
+            <div className="text-center py-10 text-xs text-muted-foreground">
               No message thread history yet. Type a response or internal note below.
             </div>
           ) : (
             messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`p-3 rounded-lg border text-xs text-slate-800 space-y-1 ${
+                className={`p-3 rounded-lg border text-xs text-foreground space-y-1 ${
                   msg.is_internal
-                    ? "bg-amber-50/90 border-amber-200"
+                    ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800"
                     : msg.sender_type === "CUSTOMER"
-                    ? "bg-blue-50/90 border-blue-200"
-                    : "bg-slate-50 border-slate-200"
+                    ? "bg-blue-50/90 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800"
+                    : "bg-muted/50 border-border"
                 }`}
               >
                 <div className="flex items-center justify-between font-semibold">
                   <div className="flex items-center gap-1.5">
                     {msg.is_internal ? (
-                      <Badge className="bg-amber-200 text-amber-900 hover:bg-amber-200 text-[10px] py-0">
+                      <Badge className="bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 hover:bg-amber-200 text-[10px] py-0">
                         <Lock className="h-2.5 w-2.5 mr-1" /> INTERNAL NOTE
                       </Badge>
                     ) : (
-                      <span className="text-slate-900">{msg.sender_name || msg.sender_type}</span>
+                      <span className="text-foreground">{msg.sender_name || msg.sender_type}</span>
                     )}
                   </div>
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[10px] text-muted-foreground">
                     {new Date(msg.created_at).toLocaleString()}
                   </span>
                 </div>
-                <p className="whitespace-pre-wrap text-slate-700">{msg.body}</p>
+                <p className="whitespace-pre-wrap text-muted-foreground">{msg.body}</p>
 
                 {/* Attachments */}
                 {msg.attachments && msg.attachments.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/60 mt-2">
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border mt-2">
                     {msg.attachments.map((att, idx) => (
                       <a
                         key={idx}
                         href={att.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center text-[10px] bg-white border px-2 py-1 rounded text-blue-600 hover:underline gap-1"
+                        className="inline-flex items-center text-[10px] bg-background border-border border px-2 py-1 rounded text-primary hover:underline gap-1"
                       >
                         <Paperclip className="h-3 w-3" />
                         {att.name || `Attachment ${idx + 1}`}
@@ -217,10 +217,10 @@ export function TicketMessagesDialog({ complaint, open, onOpenChange }: TicketMe
         </div>
 
         {/* Message Input Box */}
-        <div className="space-y-2 pt-2 border-t border-[#dfc7ae]">
+        <div className="space-y-2 pt-2 border-t border-border">
           <Tabs defaultValue="public" onValueChange={(val) => setIsInternal(val === "internal")}>
             <div className="flex items-center justify-between">
-              <TabsList className="bg-[#e2d5c5]">
+              <TabsList className="bg-muted">
                 <TabsTrigger value="public" className="text-xs">
                   Public Customer Reply
                 </TabsTrigger>
@@ -229,7 +229,7 @@ export function TicketMessagesDialog({ complaint, open, onOpenChange }: TicketMe
                 </TabsTrigger>
               </TabsList>
 
-              <label className="cursor-pointer inline-flex items-center text-xs text-[#5a3e2b] hover:underline font-medium gap-1">
+              <label className="cursor-pointer inline-flex items-center text-xs text-foreground hover:underline font-medium gap-1">
                 <Paperclip className="h-3.5 w-3.5" />
                 {uploading ? "Uploading..." : "Attach File (ImageKit)"}
                 <input type="file" onChange={handleFileUpload} className="hidden" disabled={uploading} />
@@ -241,20 +241,20 @@ export function TicketMessagesDialog({ complaint, open, onOpenChange }: TicketMe
                 placeholder="Type response to customer..."
                 value={messageBody}
                 onChange={(e) => setMessageBody(e.target.value)}
-                className="bg-white border-[#dfc7ae] min-h-[70px] text-xs"
+                className="bg-background border-border min-h-[70px] text-xs"
               />
             </TabsContent>
 
             <TabsContent value="internal" className="pt-2">
-              <div className="bg-amber-100/50 p-1.5 rounded text-[11px] text-amber-900 mb-1.5 flex items-center gap-1">
-                <ShieldAlert className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+              <div className="bg-amber-100/50 dark:bg-amber-950/40 p-1.5 rounded text-[11px] text-amber-900 dark:text-amber-200 mb-1.5 flex items-center gap-1">
+                <ShieldAlert className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
                 Private internal notes are visible only to logged-in support agents and admins.
               </div>
               <Textarea
                 placeholder="Type private staff investigation note..."
                 value={messageBody}
                 onChange={(e) => setMessageBody(e.target.value)}
-                className="bg-amber-50/60 border-amber-300 min-h-[70px] text-xs"
+                className="bg-amber-50/60 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800 min-h-[70px] text-xs text-foreground"
               />
             </TabsContent>
           </Tabs>
@@ -263,7 +263,7 @@ export function TicketMessagesDialog({ complaint, open, onOpenChange }: TicketMe
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 text-xs">
               {attachments.map((att, i) => (
-                <span key={i} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
+                <span key={i} className="bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
                   <Paperclip className="h-3 w-3" /> {att.name}
                 </span>
               ))}
@@ -277,7 +277,7 @@ export function TicketMessagesDialog({ complaint, open, onOpenChange }: TicketMe
             <Button
               onClick={handleSendMessage}
               disabled={createMessageMutation.isPending || !messageBody.trim()}
-              className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-[#faf6f2] text-xs h-8"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8"
             >
               <Send className="h-3.5 w-3.5 mr-1" />
               {isInternal ? "Save Internal Note" : "Post Reply"}

@@ -37,7 +37,7 @@ function formatRelative(iso: string) {
 export function RecentComplaints({ items }: { items: RecentComplaint[] }) {
   if (items.length === 0) {
     return (
-      <Card className="bg-white border-[#EED9C4]">
+      <Card>
         <CardHeader>
           <CardTitle>Recent complaints</CardTitle>
           <CardDescription>Nothing yet — submit via the complaint API.</CardDescription>
@@ -47,7 +47,7 @@ export function RecentComplaints({ items }: { items: RecentComplaint[] }) {
   }
 
   return (
-    <Card className="bg-white border-[#EED9C4]">
+    <Card>
       <CardHeader>
         <CardTitle>Recent complaints</CardTitle>
         <CardDescription>Newest tickets in your tenant.</CardDescription>
@@ -58,21 +58,21 @@ export function RecentComplaints({ items }: { items: RecentComplaint[] }) {
             <Link
               key={c.id}
               href={`/dashboard/complaints/${c.id}`}
-              className="flex items-start gap-4 p-3 rounded-lg hover:bg-[#f5eadf] transition-colors group block"
+              className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/70 transition-colors group block"
             >
-              <Avatar className="h-10 w-10 bg-[#c9a382] text-white">
+              <Avatar className="h-10 w-10 bg-accent text-accent-foreground">
                 <AvatarFallback>{initials(c.customer_name || "?")}</AvatarFallback>
               </Avatar>
               <div className="space-y-1 flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium truncate group-hover:text-indigo-600 transition-colors">
+                  <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
                     {c.customer_name}
                   </p>
                   <span className="text-xs text-muted-foreground shrink-0">
                     {formatRelative(c.created_at)}
                   </span>
                 </div>
-                <p className="text-sm font-medium text-[#8a6e53] truncate">{c.title}</p>
+                <p className="text-sm font-medium text-muted-foreground truncate">{c.title}</p>
                 {c.description && (
                   <p className="text-sm text-muted-foreground line-clamp-2">{c.description}</p>
                 )}

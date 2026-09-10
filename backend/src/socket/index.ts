@@ -9,7 +9,17 @@ let io: SocketIOServer | null = null;
 export function initSocketServer(httpServer: HttpServer): SocketIOServer {
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: [config.FRONTEND_URL, "http://localhost:3000"],
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (
+          origin === "http://localhost:3000" ||
+          origin === config.FRONTEND_URL ||
+          origin.endsWith(".vercel.app")
+        ) {
+          return callback(null, true);
+        }
+        return callback(null, false);
+      },
       credentials: true,
     },
   });
@@ -110,6 +120,19 @@ export function getIO(): SocketIOServer {
     throw new Error("Socket.io server has not been initialized yet.");
   }
   return io;
+}
+
+export function closeSocketServer(): Promise<void> {
+  return new Promise((resolve) => {
+    if (!io) {
+      return resolve();
+    }
+    io.close(() => {
+      console.log("[Socket.io] WebSocket server closed cleanly.");
+      io = null;
+      resolve();
+    });
+  });
 }
 
 export class SocketEmitter {

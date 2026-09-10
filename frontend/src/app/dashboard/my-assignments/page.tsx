@@ -150,13 +150,13 @@ export default function MyAssignmentsPage() {
   if (!user?.employeeId) {
     return (
       <div className="max-w-lg space-y-4">
-        <h1 className="text-2xl font-bold tracking-tight text-[#3d2a1c]">My Agent Queue</h1>
-        <Card className="border-amber-200 bg-amber-50">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">My Agent Queue</h1>
+        <Card className="border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40">
           <CardHeader>
-            <CardTitle className="text-amber-900 text-base font-semibold">No Employee Profile Linked</CardTitle>
-            <CardDescription className="text-amber-800 text-xs">
+            <CardTitle className="text-amber-900 dark:text-amber-200 text-base font-semibold">No Employee Profile Linked</CardTitle>
+            <CardDescription className="text-amber-800 dark:text-amber-300 text-xs">
               Your user account does not have an active <code className="text-xs font-mono">employeeId</code> attached. Join via an invite link or ask your Administrator to link your staff profile in{" "}
-              <Link href="/dashboard/employees" className="underline font-semibold">
+              <Link href="/dashboard/employees" className="underline font-semibold text-primary">
                 Staff Workload → Invite
               </Link>
               .
@@ -170,8 +170,8 @@ export default function MyAssignmentsPage() {
   return (
     <div className="flex-1 overflow-auto space-y-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-[#3d2a1c]">My Assigned Complaints</h1>
-        <p className="text-xs text-slate-500">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">My Assigned Complaints</h1>
+        <p className="text-xs text-muted-foreground">
           Active cases routed to your personal queue via vector matching or manual assignment.
         </p>
       </div>
@@ -179,27 +179,27 @@ export default function MyAssignmentsPage() {
       <div className="grid gap-4 md:grid-cols-4">
         {(
           [
-            ["Assigned Queue", statusCounts.all, AlertCircle, "text-[#c9a382]"],
+            ["Assigned Queue", statusCounts.all, AlertCircle, "text-muted-foreground"],
             ["Open", statusCounts.open, AlertCircle, "text-blue-500"],
             ["In Progress", statusCounts.in_progress, Clock, "text-purple-500"],
             ["Resolved", statusCounts.resolved, CheckCircle, "text-emerald-500"],
           ] as const
         ).map(([label, n, Icon, color]) => (
-          <Card key={label} className="bg-white border-[#EED9C4] shadow-sm">
+          <Card key={label}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-medium text-slate-600">{label}</CardTitle>
+              <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>
               <Icon className={`h-4 w-4 ${color}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{n}</div>
+              <div className="text-2xl font-bold text-foreground">{n}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <Card className="bg-white border-[#EED9C4] shadow-sm">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-semibold text-[#5a3e2b]">Personal Work Queue</CardTitle>
+          <CardTitle className="text-lg font-semibold text-foreground">Personal Work Queue</CardTitle>
           <CardDescription>Review messages, add investigation notes, and send resolution emails</CardDescription>
         </CardHeader>
         <CardContent>
@@ -211,11 +211,11 @@ export default function MyAssignmentsPage() {
                 placeholder="Search assigned cases..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 bg-white w-full sm:w-[280px] text-xs"
+                className="pl-8 bg-background w-full sm:w-[280px] text-xs"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px] bg-white text-xs">
+              <SelectTrigger className="w-[180px] bg-background text-xs">
                 <SelectValue placeholder="Status Filter" />
               </SelectTrigger>
               <SelectContent>
@@ -227,9 +227,9 @@ export default function MyAssignmentsPage() {
             </Select>
           </div>
 
-          <div className="rounded-md border border-[#EED9C4] overflow-x-auto">
+          <div className="rounded-md border border-border overflow-x-auto">
             <Table>
-              <TableHeader className="bg-[#faf6f2]">
+              <TableHeader className="bg-muted/50">
                 <TableRow>
                   <TableHead className="w-[8ch]">ID</TableHead>
                   <TableHead>Customer</TableHead>
@@ -242,13 +242,13 @@ export default function MyAssignmentsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-xs text-slate-400">
+                    <TableCell colSpan={6} className="h-24 text-center text-xs text-muted-foreground">
                       Loading personal queue...
                     </TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-xs text-slate-400">
+                    <TableCell colSpan={6} className="h-24 text-center text-xs text-muted-foreground">
                       No assigned complaints match your filter.
                     </TableCell>
                   </TableRow>
@@ -256,11 +256,11 @@ export default function MyAssignmentsPage() {
                   filtered.map((assignment) => {
                     const item = mapToComplaintItem(assignment);
                     return (
-                      <TableRow key={assignment.id} className="hover:bg-slate-50 transition-colors">
+                      <TableRow key={assignment.id} className="hover:bg-muted/50 transition-colors">
                         <TableCell className="font-mono text-xs font-semibold">
                           <Link
                             href={`/dashboard/complaints/${assignment.complaint_id || assignment.id}`}
-                            className="text-slate-500 hover:text-indigo-600 hover:underline transition-colors"
+                            className="text-muted-foreground hover:text-primary hover:underline transition-colors"
                           >
                             #{assignment.complaint_id.substring(0, 6)}
                           </Link>
@@ -268,25 +268,25 @@ export default function MyAssignmentsPage() {
                         <TableCell>
                           <Link
                             href={`/dashboard/complaints/${assignment.complaint_id || assignment.id}`}
-                            className="font-medium text-slate-900 hover:text-indigo-600 hover:underline transition-colors"
+                            className="font-medium text-foreground hover:text-primary hover:underline transition-colors"
                           >
                             {assignment.customer_name}
                           </Link>
-                          <div className="text-xs text-slate-500">{assignment.customer_email}</div>
+                          <div className="text-xs text-muted-foreground">{assignment.customer_email}</div>
                         </TableCell>
                         <TableCell className="max-w-[280px]">
                           <Link
                             href={`/dashboard/complaints/${assignment.complaint_id || assignment.id}`}
-                            className="font-semibold text-slate-900 hover:text-indigo-600 hover:underline truncate block transition-colors"
+                            className="font-semibold text-foreground hover:text-primary hover:underline truncate block transition-colors"
                           >
                             {assignment.title}
                           </Link>
                           {assignment.description && (
-                            <div className="text-xs text-slate-500 line-clamp-1">{assignment.description}</div>
+                            <div className="text-xs text-muted-foreground line-clamp-1">{assignment.description}</div>
                           )}
                         </TableCell>
                         <TableCell>{getStatusBadge(assignment.status)}</TableCell>
-                        <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                           {formatDate(assignment.assigned_at)}
                         </TableCell>
                         <TableCell className="text-right space-x-1">
@@ -294,10 +294,10 @@ export default function MyAssignmentsPage() {
                             asChild
                             variant="outline"
                             size="sm"
-                            className="text-xs bg-white border-[#dfc7ae] text-slate-800"
+                            className="text-xs"
                           >
                             <Link href={`/dashboard/complaints/${assignment.complaint_id || assignment.id}`}>
-                              <ExternalLink className="h-3.5 w-3.5 mr-1 text-indigo-600" />
+                              <ExternalLink className="h-3.5 w-3.5 mr-1 text-primary" />
                               View Page
                             </Link>
                           </Button>

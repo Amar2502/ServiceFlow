@@ -139,8 +139,8 @@ console.log(response.data);`;
     <div className="flex-1 overflow-auto">
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
-          <BookOpen className="h-8 w-8 text-[#c9a382]" />
-          <h1 className="text-2xl font-bold tracking-tight">API Documentation</h1>
+          <BookOpen className="h-8 w-8 text-muted-foreground" />
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">API Documentation</h1>
         </div>
         <p className="text-muted-foreground">
           Integrate ServiceFlow into your application with our RESTful API.
@@ -148,10 +148,10 @@ console.log(response.data);`;
       </div>
 
       {/* Quick Start */}
-      <Card className="bg-white border-[#EED9C4] mb-6">
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5 text-[#c9a382]" />
+            <Key className="h-5 w-5 text-muted-foreground" />
             Quick Start
           </CardTitle>
           <CardDescription>
@@ -160,21 +160,21 @@ console.log(response.data);`;
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h3 className="font-semibold mb-2">1. Get Your API Key</h3>
+            <h3 className="font-semibold mb-2 text-foreground">1. Get Your API Key</h3>
             <p className="text-sm text-muted-foreground mb-2">
               Open{" "}
-              <Link href="/dashboard/apikeys" className="text-[#8c6d4e] hover:underline">
+              <Link href="/dashboard/apikeys" className="text-primary hover:underline">
                 API keys
               </Link>{" "}
               to create a key, and{" "}
-              <Link href="/dashboard/settings" className="text-[#8c6d4e] hover:underline">
+              <Link href="/dashboard/settings" className="text-primary hover:underline">
                 Settings
               </Link>{" "}
               to choose department vs employee routing for inbound tickets.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold mb-2">2. Authenticate Requests</h3>
+            <h3 className="font-semibold mb-2 text-foreground">2. Authenticate Requests</h3>
             <p className="text-sm text-muted-foreground mb-2">
               Send the secret key as a Bearer token (same string shown once when you create the key):
             </p>
@@ -185,7 +185,7 @@ console.log(response.data);`;
             />
           </div>
           <div>
-            <h3 className="font-semibold mb-2">3. Make Your First Request</h3>
+            <h3 className="font-semibold mb-2 text-foreground">3. Make Your First Request</h3>
             <p className="text-sm text-muted-foreground mb-2">
               Create a complaint using the endpoint below:
             </p>
@@ -195,38 +195,38 @@ console.log(response.data);`;
       </Card>
 
       {/* Base URL */}
-      <Card className="bg-white border-[#EED9C4] mb-6">
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5 text-[#c9a382]" />
+            <Globe className="h-5 w-5 text-muted-foreground" />
             Base URL
           </CardTitle>
         </CardHeader>
         <CardContent>
           <CodeBlock code={`${API_BASE}/api`} language="text" id="base-url" />
           <p className="text-sm text-muted-foreground mt-2">
-            Set <code className="bg-gray-100 px-1 rounded">NEXT_PUBLIC_API_URL</code> in{" "}
-            <code className="bg-gray-100 px-1 rounded">.env.local</code> to point the console at your
+            Set <code className="bg-muted px-1 rounded font-mono text-xs">NEXT_PUBLIC_API_URL</code> in{" "}
+            <code className="bg-muted px-1 rounded font-mono text-xs">.env.local</code> to point the console at your
             deployed API.
           </p>
         </CardContent>
       </Card>
 
       {/* Endpoints */}
-      <Card className="bg-white border-[#EED9C4] mb-6">
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-[#c9a382]" />
+            <FileText className="h-5 w-5 text-muted-foreground" />
             Endpoints
           </CardTitle>
           <CardDescription>Available API endpoints</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Create Complaint */}
-          <div className="border-b pb-6">
+          <div className="border-b border-border pb-6">
             <div className="flex items-center gap-2 mb-3">
-              <Badge className="bg-green-100 text-green-800">POST</Badge>
-              <code className="text-sm font-mono">/complaints/create</code>
+              <Badge className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800">POST</Badge>
+              <code className="text-sm font-mono text-foreground">/complaints/create</code>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Create a complaint. Routing uses your tenant&apos;s strategy (department vs employee
@@ -234,7 +234,7 @@ console.log(response.data);`;
             </p>
 
             <div className="mb-4">
-              <h4 className="font-semibold text-sm mb-2">Request Body</h4>
+              <h4 className="font-semibold text-sm mb-2 text-foreground">Request Body</h4>
               <CodeBlock
                 code={`{
   "title": "string (required)",
@@ -249,14 +249,14 @@ console.log(response.data);`;
             </div>
 
             <div className="mb-4">
-              <h4 className="font-semibold text-sm mb-2">Response</h4>
+              <h4 className="font-semibold text-sm mb-2 text-foreground">Response</h4>
               <CodeBlock code={responseExample} language="json" id="response-example" />
             </div>
 
             <div className="mb-4">
-              <h4 className="font-semibold text-sm mb-2">Code Examples</h4>
+              <h4 className="font-semibold text-sm mb-2 text-foreground">Code Examples</h4>
               <Tabs defaultValue="curl" className="w-full">
-                <TabsList className="bg-[#f5eadf]">
+                <TabsList className="bg-muted">
                   <TabsTrigger value="curl">cURL</TabsTrigger>
                   <TabsTrigger value="javascript">JavaScript</TabsTrigger>
                   <TabsTrigger value="python">Python</TabsTrigger>
@@ -281,7 +281,7 @@ console.log(response.data);`;
       </Card>
 
       {/* Authentication */}
-      <Card className="bg-white border-[#EED9C4] mb-6">
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>Authentication</CardTitle>
           <CardDescription>How to authenticate your API requests</CardDescription>
@@ -290,16 +290,16 @@ console.log(response.data);`;
           <div>
             <p className="text-sm text-muted-foreground mb-2">
               All API requests require authentication using an API key. Include your API key in the
-              request header:
+              standard <code className="bg-muted px-1 rounded font-mono text-xs">Authorization</code> header:
             </p>
             <CodeBlock
-              code='X-API-Key: your-api-key-here'
+              code='Authorization: Bearer YOUR_API_KEY'
               language="text"
               id="auth-example"
             />
           </div>
           <div>
-            <h4 className="font-semibold text-sm mb-2">Security Best Practices</h4>
+            <h4 className="font-semibold text-sm mb-2 text-foreground">Security Best Practices</h4>
             <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
               <li>Never expose your API key in client-side code</li>
               <li>Store API keys securely using environment variables</li>
@@ -312,33 +312,33 @@ console.log(response.data);`;
       </Card>
 
       {/* Routing Modes */}
-      <Card className="bg-white border-[#EED9C4] mb-6">
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>Routing Modes</CardTitle>
           <CardDescription>How complaints are assigned</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h4 className="font-semibold text-sm mb-2">DEPARTMENT Mode</h4>
+            <h4 className="font-semibold text-sm mb-2 text-foreground">DEPARTMENT Mode</h4>
             <p className="text-sm text-muted-foreground mb-2">
               Complaints are routed to departments based on ML classification. The system analyzes
               the complaint content and matches it to the most relevant department using keywords.
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-2">
-              <p className="text-xs text-blue-800">
+            <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-md p-3 mt-2">
+              <p className="text-xs text-blue-800 dark:text-blue-300">
                 <strong>Use case:</strong> When you want complaints to go to specific teams or
                 departments first, then be distributed within that department.
               </p>
             </div>
           </div>
           <div>
-            <h4 className="font-semibold text-sm mb-2">EMPLOYEE Mode</h4>
+            <h4 className="font-semibold text-sm mb-2 text-foreground">EMPLOYEE Mode</h4>
             <p className="text-sm text-muted-foreground mb-2">
               Complaints are directly routed to individual employees based on their expertise and
               keywords. The ML system matches complaints to the most suitable employee.
             </p>
-            <div className="bg-purple-50 border border-purple-200 rounded-md p-3 mt-2">
-              <p className="text-xs text-purple-800">
+            <div className="bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 rounded-md p-3 mt-2">
+              <p className="text-xs text-purple-800 dark:text-purple-300">
                 <strong>Use case:</strong> When you want direct assignment to specific employees
                 based on their skills and expertise.
               </p>
@@ -348,48 +348,48 @@ console.log(response.data);`;
       </Card>
 
       {/* Response Codes */}
-      <Card className="bg-white border-[#EED9C4] mb-6">
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>HTTP Status Codes</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <Badge className="bg-green-100 text-green-800">200</Badge>
+              <Badge className="bg-green-100 dark:bg-green-950/60 text-green-800 dark:text-green-300 border-green-300 dark:border-green-800">200</Badge>
               <div>
-                <p className="font-semibold text-sm">OK</p>
+                <p className="font-semibold text-sm text-foreground">OK</p>
                 <p className="text-xs text-muted-foreground">Request successful</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <Badge className="bg-green-100 text-green-800">201</Badge>
+              <Badge className="bg-green-100 dark:bg-green-950/60 text-green-800 dark:text-green-300 border-green-300 dark:border-green-800">201</Badge>
               <div>
-                <p className="font-semibold text-sm">Created</p>
+                <p className="font-semibold text-sm text-foreground">Created</p>
                 <p className="text-xs text-muted-foreground">Complaint created successfully</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <Badge className="bg-red-100 text-red-800">400</Badge>
+              <Badge className="bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 border-red-300 dark:border-red-800">400</Badge>
               <div>
-                <p className="font-semibold text-sm">Bad Request</p>
+                <p className="font-semibold text-sm text-foreground">Bad Request</p>
                 <p className="text-xs text-muted-foreground">
                   Invalid request parameters or missing required fields
                 </p>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <Badge className="bg-red-100 text-red-800">401</Badge>
+              <Badge className="bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 border-red-300 dark:border-red-800">401</Badge>
               <div>
-                <p className="font-semibold text-sm">Unauthorized</p>
+                <p className="font-semibold text-sm text-foreground">Unauthorized</p>
                 <p className="text-xs text-muted-foreground">
                   Invalid or missing API key
                 </p>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <Badge className="bg-red-100 text-red-800">500</Badge>
+              <Badge className="bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 border-red-300 dark:border-red-800">500</Badge>
               <div>
-                <p className="font-semibold text-sm">Internal Server Error</p>
+                <p className="font-semibold text-sm text-foreground">Internal Server Error</p>
                 <p className="text-xs text-muted-foreground">
                   Server error occurred. Please try again later.
                 </p>
@@ -400,7 +400,7 @@ console.log(response.data);`;
       </Card>
 
       {/* Support */}
-      <Card className="bg-white border-[#EED9C4]">
+      <Card>
         <CardHeader>
           <CardTitle>Need Help?</CardTitle>
         </CardHeader>
@@ -411,12 +411,12 @@ console.log(response.data);`;
           </p>
           <div className="flex gap-2">
             <Link href="/dashboard/apikeys">
-              <Button variant="outline" className="bg-white">
+              <Button variant="outline">
                 <Key className="h-4 w-4 mr-2" />
                 View API Keys
               </Button>
             </Link>
-            <Button variant="outline" className="bg-white">
+            <Button variant="outline">
               <FileText className="h-4 w-4 mr-2" />
               Download Postman Collection
             </Button>

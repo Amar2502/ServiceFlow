@@ -93,10 +93,10 @@ export function AssignTicketDialog({ complaint, open, onOpenChange }: AssignTick
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-[#faf6f2]">
+      <DialogContent className="max-w-md bg-background">
         <DialogHeader>
-          <DialogTitle className="text-[#5a3e2b] flex items-center gap-2 text-lg">
-            <Building2 className="h-5 w-5 text-amber-800" />
+          <DialogTitle className="text-foreground flex items-center gap-2 text-lg">
+            <Building2 className="h-5 w-5 text-amber-600" />
             Assign Ticket #{complaint.id.substring(0, 6)}
           </DialogTitle>
           <DialogDescription className="text-xs">
@@ -105,16 +105,16 @@ export function AssignTicketDialog({ complaint, open, onOpenChange }: AssignTick
         </DialogHeader>
 
         {!isAdmin ? (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4 text-xs text-red-900 space-y-2">
-            <p className="font-bold text-red-800 flex items-center gap-1.5">
+          <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-md p-4 text-xs text-red-900 dark:text-red-200 space-y-2">
+            <p className="font-bold text-red-800 dark:text-red-300 flex items-center gap-1.5">
               <ShieldAlert className="h-4 w-4 text-red-600" /> Access Restricted (Admin Only)
             </p>
-            <p className="text-red-700">
+            <p className="text-red-700 dark:text-red-300">
               Your account role is <strong>{user?.role || "AGENT"}</strong>. Ticket assignment and workload re-routing can only be performed by workspace Administrators.
             </p>
             <Button
               onClick={() => onOpenChange(false)}
-              className="w-full bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs mt-2"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs mt-2"
             >
               Close Window
             </Button>
@@ -122,11 +122,11 @@ export function AssignTicketDialog({ complaint, open, onOpenChange }: AssignTick
         ) : (
           <>
             {!complaint.assignment && (
-              <div className="bg-amber-100/60 border border-amber-300 rounded-md p-3 text-xs text-amber-900 flex items-start gap-2 my-1">
-                <ShieldAlert className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+              <div className="bg-amber-100/60 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-md p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2 my-1">
+                <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="font-semibold text-amber-900">Needs Manual Assignment:</strong>
-                  <p className="text-amber-800 mt-0.5">
+                  <strong className="font-semibold text-amber-900 dark:text-amber-100">Needs Manual Assignment:</strong>
+                  <p className="text-amber-800 dark:text-amber-300 mt-0.5">
                     Groq AI did not find a high-confidence matching department. Select a department or staff member below.
                   </p>
                 </div>
@@ -134,7 +134,7 @@ export function AssignTicketDialog({ complaint, open, onOpenChange }: AssignTick
             )}
 
             <Tabs defaultValue={user?.routingMode === "EMPLOYEE" ? "employee" : "department"} className="mt-2">
-              <TabsList className="w-full bg-[#e2d5c5]">
+              <TabsList className="w-full bg-muted">
                 <TabsTrigger value="department" className="w-1/2 text-xs flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5" /> Department {user?.routingMode === "DEPARTMENT" ? "(Active Strategy)" : ""}
                 </TabsTrigger>
@@ -145,15 +145,15 @@ export function AssignTicketDialog({ complaint, open, onOpenChange }: AssignTick
 
               {/* Department Assignment Tab */}
               <TabsContent value="department" className="space-y-3 pt-3">
-                <div className="bg-slate-100 border border-slate-200 rounded p-2.5 text-[11px] text-slate-700 flex items-center gap-1.5">
+                <div className="bg-muted/50 border border-border rounded p-2.5 text-[11px] text-muted-foreground flex items-center gap-1.5">
                   <Sparkles className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                   Assigning to a department automatically routes the complaint to the staff member with the minimum active workload.
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Select Department:</label>
+                  <label className="text-xs font-semibold text-foreground block mb-1">Select Department:</label>
                   <Select value={selectedDeptId} onValueChange={setSelectedDeptId}>
-                    <SelectTrigger className="bg-white text-xs">
+                    <SelectTrigger className="bg-background text-xs">
                       <SelectValue placeholder="Choose target department..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -173,7 +173,7 @@ export function AssignTicketDialog({ complaint, open, onOpenChange }: AssignTick
                   <Button
                     onClick={handleAssignDept}
                     disabled={assignDeptMutation.isPending || !selectedDeptId}
-                    className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs h-8"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8"
                   >
                     Route via Minimum Workload
                   </Button>
@@ -183,9 +183,9 @@ export function AssignTicketDialog({ complaint, open, onOpenChange }: AssignTick
               {/* Direct Employee Assignment Tab */}
               <TabsContent value="employee" className="space-y-3 pt-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Select Staff Member:</label>
+                  <label className="text-xs font-semibold text-foreground block mb-1">Select Staff Member:</label>
                   <Select value={selectedEmpId} onValueChange={setSelectedEmpId}>
-                    <SelectTrigger className="bg-white text-xs">
+                    <SelectTrigger className="bg-background text-xs">
                       <SelectValue placeholder="Choose staff member..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -208,7 +208,7 @@ export function AssignTicketDialog({ complaint, open, onOpenChange }: AssignTick
                   <Button
                     onClick={handleAssignEmp}
                     disabled={assignEmpMutation.isPending || !selectedEmpId}
-                    className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs h-8"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8"
                   >
                     Assign Directly
                   </Button>

@@ -19,6 +19,7 @@ import {
   ComplaintIdBodySchema,
   ComplaintIdParamSchema,
   CreateComplaintSchema,
+  GetAllComplaintsQuerySchema,
   SendResolutionEmailSchema,
   UpdateComplaintStatusSchema,
 } from "./complaint.schema";
@@ -29,7 +30,7 @@ const router = Router();
 router.post("/create", apiKeyAuth, validateRequest({ body: CreateComplaintSchema }), createComplaint);
 
 // Staff endpoints (ADMIN and AGENT)
-router.get("/all", authenticateJwt, requireRole("ADMIN", "AGENT"), getAllComplaints);
+router.get("/all", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ query: GetAllComplaintsQuerySchema }), getAllComplaints);
 router.get("/details/:complaintId", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ params: ComplaintIdParamSchema }), getComplaintDetails);
 router.post("/send-resolution-email", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ body: SendResolutionEmailSchema }), sendResolutionEmailController);
 router.patch("/update-status", authenticateJwt, requireRole("ADMIN", "AGENT"), validateRequest({ body: UpdateComplaintStatusSchema }), updateComplaintStatus);

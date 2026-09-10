@@ -5,7 +5,9 @@ import { GroqService } from "./groq.service";
 import { WorkloadService } from "./workload.service";
 import { SlaService } from "../sla/sla.service";
 import { ComplaintsSocket } from "./complaints.socket";
+import { EmployeesSocket } from "../employees/employees.socket";
 import { EmailService } from "../notifications/email.service";
+import { sendProblemDetails } from "../../utils/rfc7807";
 
 interface CreateComplaintBody {
   title: string;
@@ -15,11 +17,138 @@ interface CreateComplaintBody {
   externalReferenceId?: string;
 }
 
+interface FallbackTriageResult {
+  selectedTarget?: string;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  sentiment: "HAPPY" | "NEUTRAL" | "FRUSTRATED" | "ANGRY";
+  suggestedReply: string;
+}
+
+/**
+ * Deterministic keyword & heuristic fallback triage when Groq AI is unavailable, rate-limited, or errored.
+ * Guarantees 100% ticket ingestion uptime.
+ */
+function performKeywordFallbackTriage(
+  complaintText: string,
+  availableTargets: string[],
+  routingMode: "DEPARTMENT" | "EMPLOYEE"
+): FallbackTriageResult {
+  const lower = complaintText.toLowerCase();
+
+  // 1. Sentiment Heuristics
+  let sentiment: "HAPPY" | "NEUTRAL" | "FRUSTRATED" | "ANGRY" = "NEUTRAL";
+  if (
+    /furious|rage|terrible|awful|horrible|lawsuit|sue|fraud|scam|disaster|unacceptable|worst|disgusted|cheated|stolen/i.test(
+      lower
+    )
+  ) {
+    sentiment = "ANGRY";
+  } else if (
+    /frustrated|annoyed|disappointed|upset|delay|broken|fail|wrong|poor|issue|bug|problem|not working|glitch|error|slow|bad/i.test(
+      lower
+    )
+  ) {
+    sentiment = "FRUSTRATED";
+  } else if (/thank|great|awesome|excellent|love|happy|good|appreciate|helpful/i.test(lower)) {
+    sentiment = "HAPPY";
+  }
+
+  // 2. Priority Heuristics
+  let priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT" = "MEDIUM";
+  if (
+    /urgent|emergency|asap|critical|immediate|outage|down|security|breach|exploit|p0|vulnerability|data leak|server down/i.test(
+      lower
+    )
+  ) {
+    priority = "URGENT";
+  } else if (
+    /high|important|blocker|cannot login|payment failed|money|charged twice|overcharged|production|escalat/i.test(
+      lower
+    )
+  ) {
+    priority = "HIGH";
+  } else if (/low|minor|feedback|suggestion|feature request|typo|cosmetic/i.test(lower)) {
+    priority = "LOW";
+  }
+
+  // 3. Target Selection (Keyword Matching & Heuristics)
+  let selectedTarget: string | undefined = undefined;
+
+  if (availableTargets.length > 0) {
+    // Direct match check (if user mentions the target name directly)
+    const directMatch = availableTargets.find((target) =>
+      lower.includes(target.toLowerCase().trim())
+    );
+
+    if (directMatch) {
+      selectedTarget = directMatch;
+    } else {
+      // Domain category keywords for department and employee title matching
+      const domainKeywords: Record<string, string[]> = {
+        billing: [
+          "bill", "invoice", "charge", "refund", "subscription", "price", "pricing",
+          "payment", "credit card", "bank", "receipt", "cost", "money", "overcharged", "fee", "payout"
+        ],
+        tech: [
+          "tech", "bug", "error", "server", "crash", "code", "database", "api", "login",
+          "broken", "500", "404", "glitch", "down", "stack", "deploy", "engineering", "developer", "system"
+        ],
+        sales: [
+          "sales", "quote", "demo", "buy", "purchase", "enterprise", "plan", "upgrade",
+          "lead", "deal", "pricing plan", "discount"
+        ],
+        support: [
+          "help", "assist", "support", "service", "guide", "onboarding", "how to", "question", "portal", "account"
+        ],
+        legal: [
+          "legal", "contract", "terms", "gdpr", "compliance", "privacy", "policy", "law", "attorney"
+        ],
+        operations: [
+          "delivery", "shipping", "logistics", "order", "warehouse", "tracking", "package", "dispatch"
+        ],
+        hr: [
+          "hr", "human resources", "payroll", "leave", "employee", "benefits", "hiring"
+        ],
+      };
+
+      for (const [category, keywords] of Object.entries(domainKeywords)) {
+        if (keywords.some((k) => lower.includes(k))) {
+          const matchedTarget = availableTargets.find(
+            (target) =>
+              target.toLowerCase().includes(category) ||
+              keywords.some((k) => target.toLowerCase().includes(k))
+          );
+          if (matchedTarget) {
+            selectedTarget = matchedTarget;
+            break;
+          }
+        }
+      }
+
+      // If no category matched, assign to first available target (deterministic default)
+      if (!selectedTarget) {
+        selectedTarget = availableTargets[0];
+      }
+    }
+  }
+
+  // 4. Default Professional Suggested Reply
+  const suggestedReply =
+    "Thank you for contacting our support team. We have received your complaint and a representative has been assigned to investigate and provide a swift resolution.";
+
+  return {
+    selectedTarget,
+    priority,
+    sentiment,
+    suggestedReply,
+  };
+}
+
 export const createComplaint = async (req: Request, res: Response) => {
   const { title, description, customerName, customerEmail, externalReferenceId } =
     req.body as CreateComplaintBody;
 
-  const tenantId = req.user?.tenantId;
+  const tenantId = req.apiKey?.tenantId || req.user?.tenantId;
 
   if (!title || !customerName || !customerEmail) {
     return res.status(400).json({ message: "All required fields (title, customerName, customerEmail) must be provided" });
@@ -29,55 +158,66 @@ export const createComplaint = async (req: Request, res: Response) => {
     return res.status(401).json({ message: "Unauthorized: Missing tenant context" });
   }
 
-  // 3] AI receives complaint title + complaint description in one text
+  // AI receives complaint title + complaint description in one text
   const complaintText = description ? `${title}\n${description}` : title;
 
   try {
-    const responsePayload = await db.$transaction(async (tx) => {
-      // 1. Fetch tenant routing mode (DEPARTMENT vs EMPLOYEE)
-      const tenant = await tx.tenant.findUnique({
-        where: { id: tenantId },
-        select: { routingMode: true },
+    // -------------------------------------------------------------------------
+    // 1. Pre-fetch Context & Targets Outside Database Transaction
+    // -------------------------------------------------------------------------
+    const tenant = await db.tenant.findUnique({
+      where: { id: tenantId },
+      select: { routingMode: true },
+    });
+
+    const routingMode = tenant?.routingMode || "DEPARTMENT";
+
+    let aiResult: {
+      selected_target?: string;
+      priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+      sentiment: "HAPPY" | "NEUTRAL" | "FRUSTRATED" | "ANGRY";
+      suggested_reply: string;
+      confidence: number;
+      isFallback?: boolean;
+    } = {
+      priority: "MEDIUM",
+      sentiment: "NEUTRAL",
+      suggested_reply: "Thank you for contacting support. We will address your request shortly.",
+      confidence: 0,
+      isFallback: false,
+    };
+
+    let targetDepartment: any = null;
+    let targetEmployee: any = null;
+
+    // -------------------------------------------------------------------------
+    // 2. Groq AI Classification with Fallback Triage (Outside Transaction)
+    //    Prevents DB connection pool starvation and guarantees 100% ingestion uptime.
+    // -------------------------------------------------------------------------
+    if (routingMode === "EMPLOYEE") {
+      const dbEmployees = await db.employee.findMany({
+        where: { tenantId, deletedAt: null },
+        include: { user: true, department: true },
       });
 
-      const routingMode = tenant?.routingMode || "DEPARTMENT";
-      let aiResult: {
-        selected_target?: string;
-        priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-        sentiment: "HAPPY" | "NEUTRAL" | "FRUSTRATED" | "ANGRY";
-        suggested_reply: string;
-        confidence: number;
-      } = {
-        priority: "MEDIUM",
-        sentiment: "NEUTRAL",
-        suggested_reply: "Thank you for contacting support. We will address your request shortly.",
-        confidence: 0,
-      };
+      const validEmployees = dbEmployees.filter(
+        (e) => Boolean(e.title && e.title.trim())
+      );
 
-      let targetDepartment: any = null;
-      let targetEmployee: any = null;
-
-      if (routingMode === "EMPLOYEE") {
-        // 3] EMPLOYEE ROUTING:
-        // a) complaint title + complaint description in one text
-        // b) all employee titles
-        // c) nothing else
-        const dbEmployees = await tx.employee.findMany({
-          where: { tenantId, deletedAt: null },
-          include: { user: true, department: true },
-        });
-
-        const validEmployees = dbEmployees.filter(
-          (e) => Boolean(e.title && e.title.trim())
+      if (validEmployees.length === 0) {
+        aiResult = {
+          priority: "MEDIUM",
+          sentiment: "NEUTRAL",
+          suggested_reply: "Thank you for contacting support. We will address your request shortly.",
+          confidence: 0,
+          isFallback: true,
+        };
+      } else {
+        const employeeTitles = Array.from(
+          new Set(validEmployees.map((e) => e.title!.trim()))
         );
 
-        if (validEmployees.length === 0) {
-          aiResult.confidence = 0;
-        } else {
-          const employeeTitles = Array.from(
-            new Set(validEmployees.map((e) => e.title!.trim()))
-          );
-
+        try {
           const classification = await GroqService.classifyEmployeeRouting(
             complaintText,
             employeeTitles
@@ -89,10 +229,32 @@ export const createComplaint = async (req: Request, res: Response) => {
             sentiment: classification.sentiment,
             suggested_reply: classification.suggested_reply,
             confidence: classification.confidence,
+            isFallback: false,
           };
+        } catch (groqErr: any) {
+          console.warn(
+            `[Groq AI Fallback] Employee routing classification failed: ${groqErr?.message || groqErr}. Applying keyword/heuristic fallback triage.`
+          );
+          const fallback = performKeywordFallbackTriage(
+            complaintText,
+            employeeTitles,
+            "EMPLOYEE"
+          );
+          aiResult = {
+            selected_target: fallback.selectedTarget,
+            priority: fallback.priority,
+            sentiment: fallback.sentiment,
+            suggested_reply: fallback.suggestedReply,
+            confidence: 0.0,
+            isFallback: true,
+          };
+        }
 
+        if (aiResult.selected_target) {
           const matchingEmployees = validEmployees.filter(
-            (e) => e.title!.trim().toLowerCase() === classification.selected_employee_title.toLowerCase()
+            (e) =>
+              e.title!.trim().toLowerCase() ===
+              aiResult.selected_target!.toLowerCase()
           );
 
           if (matchingEmployees.length > 0) {
@@ -101,21 +263,28 @@ export const createComplaint = async (req: Request, res: Response) => {
           } else {
             targetEmployee = validEmployees[0];
           }
-        }
-      } else {
-        // 3] DEPARTMENT ROUTING:
-        // a) complaint title + complaint description in one text
-        // b) all department names
-        // c) nothing else
-        const dbDepartments = await tx.department.findMany({
-          where: { tenantId, deletedAt: null },
-        });
-
-        if (dbDepartments.length === 0) {
-          aiResult.confidence = 0;
         } else {
-          const departmentNames = dbDepartments.map((d) => d.name.trim());
+          targetEmployee = validEmployees[0];
+        }
+      }
+    } else {
+      // DEPARTMENT routing mode
+      const dbDepartments = await db.department.findMany({
+        where: { tenantId, deletedAt: null },
+      });
 
+      if (dbDepartments.length === 0) {
+        aiResult = {
+          priority: "MEDIUM",
+          sentiment: "NEUTRAL",
+          suggested_reply: "Thank you for contacting support. We will address your request shortly.",
+          confidence: 0,
+          isFallback: true,
+        };
+      } else {
+        const departmentNames = dbDepartments.map((d) => d.name.trim());
+
+        try {
           const classification = await GroqService.classifyDepartmentRouting(
             complaintText,
             departmentNames
@@ -127,21 +296,53 @@ export const createComplaint = async (req: Request, res: Response) => {
             sentiment: classification.sentiment,
             suggested_reply: classification.suggested_reply,
             confidence: classification.confidence,
+            isFallback: false,
           };
+        } catch (groqErr: any) {
+          console.warn(
+            `[Groq AI Fallback] Department routing classification failed: ${groqErr?.message || groqErr}. Applying keyword/heuristic fallback triage.`
+          );
+          const fallback = performKeywordFallbackTriage(
+            complaintText,
+            departmentNames,
+            "DEPARTMENT"
+          );
+          aiResult = {
+            selected_target: fallback.selectedTarget,
+            priority: fallback.priority,
+            sentiment: fallback.sentiment,
+            suggested_reply: fallback.suggestedReply,
+            confidence: 0.0,
+            isFallback: true,
+          };
+        }
 
+        if (aiResult.selected_target) {
           targetDepartment =
             dbDepartments.find(
-              (d) => d.name.trim().toLowerCase() === classification.selected_department.toLowerCase()
+              (d) =>
+                d.name.trim().toLowerCase() ===
+                aiResult.selected_target!.toLowerCase()
             ) || dbDepartments[0];
+        } else {
+          targetDepartment = dbDepartments[0];
         }
       }
+    }
 
-      // Calculate exact SLA Due Timestamp based on AI-predicted Priority
-      const slaDueAt = SlaService.calculateSlaDueAt(aiResult.priority);
+    // Calculate exact SLA Due Timestamp based on Priority
+    const slaDueAt = SlaService.calculateSlaDueAt(aiResult.priority);
 
-      // Requirement 7 threshold: confidence >= 0.75 is considered confident match
-      const isConfidentMatch = aiResult.confidence >= 0.75;
+    // Requirement threshold: confidence >= 0.75 without fallback is considered confident match
+    const isConfidentMatch = !aiResult.isFallback && aiResult.confidence >= 0.75;
+    const aiReasoning = aiResult.isFallback
+      ? "Automated rule-based keyword & heuristic fallback triage applied (AI provider unavailable or rate limited)."
+      : `AI classified with ${(aiResult.confidence * 100).toFixed(0)}% confidence score.`;
 
+    // -------------------------------------------------------------------------
+    // 3. Fast Atomic Database Transaction (Zero Network I/O Inside)
+    // -------------------------------------------------------------------------
+    const responsePayload = await db.$transaction(async (tx) => {
       // Create Complaint
       const complaint = await tx.complaint.create({
         data: {
@@ -155,6 +356,7 @@ export const createComplaint = async (req: Request, res: Response) => {
           sentiment: aiResult.sentiment,
           summary: title,
           suggestedReply: aiResult.suggested_reply,
+          aiReasoning,
           aiConfidence: aiResult.confidence,
           slaDueAt,
           isSlaBreached: false,
@@ -245,56 +447,104 @@ export const createComplaint = async (req: Request, res: Response) => {
           suggested_reply: aiResult.suggested_reply,
           confidence: aiResult.confidence,
           selected_target: aiResult.selected_target,
+          is_fallback: Boolean(aiResult.isFallback),
         },
         sla: {
           due_at: slaDueAt,
-          target_hours: aiResult.priority === "URGENT" ? 2 : aiResult.priority === "HIGH" ? 6 : aiResult.priority === "MEDIUM" ? 24 : 48,
+          target_hours:
+            aiResult.priority === "URGENT"
+              ? 2
+              : aiResult.priority === "HIGH"
+              ? 6
+              : aiResult.priority === "MEDIUM"
+              ? 24
+              : 48,
         },
         assignment: assignmentData,
       };
     });
 
-    // Real-Time Socket.io Event Emissions:
-
-    // Emit complaint created event to tenant room
+    // -------------------------------------------------------------------------
+    // 4. Real-Time Socket.io Event Emissions & Notifications
+    // -------------------------------------------------------------------------
     ComplaintsSocket.emitTicketCreated(tenantId, responsePayload);
 
-    // 5] Admin notification: new complaint created and routed to department or employee
-    const targetInfo = responsePayload.routingMode === "EMPLOYEE"
-      ? `employee "${responsePayload.assignment?.employee_name || responsePayload.ai_triage?.selected_target}"`
-      : `department "${responsePayload.assignment?.department_name || responsePayload.ai_triage?.selected_target}"${responsePayload.assignment?.employee_name ? ` (assigned to ${responsePayload.assignment.employee_name})` : ''}`;
+    if (responsePayload.assignment?.employee_id) {
+      db.employee.findUnique({
+        where: { id: responsePayload.assignment.employee_id },
+        select: { load: true },
+      }).then((emp) => {
+        if (emp && responsePayload.assignment?.employee_id) {
+          EmployeesSocket.emitLoadUpdated(tenantId, {
+            employeeId: responsePayload.assignment.employee_id,
+            load: emp.load,
+          });
+        }
+      }).catch((e) => console.warn("Failed emitting load update on ticket create:", e));
+    }
+
+    // Admin notification: new complaint created and routed
+    const targetInfo =
+      responsePayload.routingMode === "EMPLOYEE"
+        ? `employee "${responsePayload.assignment?.employee_name || responsePayload.ai_triage?.selected_target}"`
+        : `department "${responsePayload.assignment?.department_name || responsePayload.ai_triage?.selected_target}"${
+            responsePayload.assignment?.employee_name
+              ? ` (assigned to ${responsePayload.assignment.employee_name})`
+              : ""
+          }`;
 
     ComplaintsSocket.emitAdminNotification(tenantId, {
       complaintId: responsePayload.complaintId,
       title: "New Complaint Created",
-      message: `New complaint #${responsePayload.complaintId.substring(0, 7)} created and routed to ${targetInfo}.`,
+      message: `New complaint #${responsePayload.complaintId.substring(0, 7)} created and routed to ${targetInfo}.${
+        responsePayload.ai_triage.is_fallback ? " (Fallback Triage Applied)" : ""
+      }`,
       priority: responsePayload.ai_triage?.priority || "MEDIUM",
       customerName,
       timestamp: new Date().toISOString(),
     });
 
-    // 6] Assigned employee notification: new complaint assigned to you
+    // Assigned employee notification
     if (responsePayload.assignment?.employee_userId) {
-      ComplaintsSocket.emitTicketAssigned(responsePayload.assignment.employee_userId, {
-        complaintId: responsePayload.complaintId,
-        title: responsePayload.title,
-        priority: responsePayload.ai_triage?.priority || "MEDIUM",
-        customerName: responsePayload.customerName,
-        message: `A new complaint is assigned to you: #${responsePayload.complaintId.substring(0, 7)} - "${title}"`,
-        timestamp: new Date().toISOString(),
-      });
+      ComplaintsSocket.emitTicketAssigned(
+        responsePayload.assignment.employee_userId,
+        {
+          complaintId: responsePayload.complaintId,
+          title: responsePayload.title,
+          priority: responsePayload.ai_triage?.priority || "MEDIUM",
+          customerName: responsePayload.customerName,
+          message: `A new complaint is assigned to you: #${responsePayload.complaintId.substring(
+            0,
+            7
+          )} - "${title}"`,
+          timestamp: new Date().toISOString(),
+        }
+      );
     }
 
-    // 7] Low confidence alert for admin if confidence < 0.75
-    if (responsePayload.ai_triage.confidence < 0.75) {
-      const suggestionName = responsePayload.routingMode === "EMPLOYEE"
-        ? responsePayload.ai_triage?.selected_target || "Employee"
-        : responsePayload.ai_triage?.selected_target || "Department";
+    // Low confidence / Fallback alert for admin
+    if (responsePayload.ai_triage.confidence < 0.75 || responsePayload.ai_triage.is_fallback) {
+      const suggestionName =
+        responsePayload.routingMode === "EMPLOYEE"
+          ? responsePayload.ai_triage?.selected_target || "Employee"
+          : responsePayload.ai_triage?.selected_target || "Department";
 
       ComplaintsSocket.emitAdminNotification(tenantId, {
         complaintId: responsePayload.complaintId,
-        title: "Low AI Routing Confidence Alert",
-        message: `Complaint #${responsePayload.complaintId.substring(0, 7)} AI suggestion is ${suggestionName} (confidence: ${(responsePayload.ai_triage.confidence * 100).toFixed(0)}%). Is this correct or assign yourself.`,
+        title: responsePayload.ai_triage.is_fallback
+          ? "Fallback Routing Alert"
+          : "Low AI Routing Confidence Alert",
+        message: responsePayload.ai_triage.is_fallback
+          ? `Complaint #${responsePayload.complaintId.substring(
+              0,
+              7
+            )} was routed via fallback triage to ${suggestionName}. Please review and reassign if necessary.`
+          : `Complaint #${responsePayload.complaintId.substring(
+              0,
+              7
+            )} AI suggestion is ${suggestionName} (confidence: ${(
+              responsePayload.ai_triage.confidence * 100
+            ).toFixed(0)}%). Is this correct or assign yourself.`,
         priority: responsePayload.ai_triage?.priority || "MEDIUM",
         type: "low_confidence",
         confidence: responsePayload.ai_triage.confidence,
@@ -317,7 +567,9 @@ export const createComplaint = async (req: Request, res: Response) => {
     return res.status(201).json(responsePayload);
   } catch (err: any) {
     console.error("CreateComplaint error:", err);
-    return res.status(500).json({ message: err.message || "Internal server error creating complaint" });
+    return res
+      .status(500)
+      .json({ message: err.message || "Internal server error creating complaint" });
   }
 };
 
@@ -369,7 +621,7 @@ export const sendResolutionEmailController = async (req: Request, res: Response)
       resolutionMessage: finalResolutionText,
     });
 
-    const updated = await db.$transaction(async (tx) => {
+    const { updated, syncedLoads } = await db.$transaction(async (tx) => {
       const c = await tx.complaint.update({
         where: { id: complaintId },
         data: {
@@ -378,9 +630,11 @@ export const sendResolutionEmailController = async (req: Request, res: Response)
         },
       });
 
-      await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
-      return c;
+      const loads = await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
+      return { updated: c, syncedLoads: loads };
     });
+
+    WorkloadService.emitLoadUpdates(syncedLoads);
 
     ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
       id: updated.id,
@@ -406,23 +660,61 @@ export const getAllComplaints = async (req: Request, res: Response) => {
   const tenantId = req.user?.tenantId;
 
   if (!tenantId) {
-    return res.status(401).json({ message: "Unauthorized" });
+    return sendProblemDetails(res, {
+      status: 401,
+      title: "Unauthorized",
+      detail: "Authentication required to fetch complaints.",
+    });
   }
 
+  const { page, limit, status, priority, search, paginated } = req.query;
+
   try {
-    const complaints = await db.complaint.findMany({
-      where: { tenantId, deletedAt: null },
-      orderBy: { createdAt: "desc" },
-      include: {
-        assignments: {
-          orderBy: { assignedAt: "desc" },
-          include: {
-            employee: { include: { user: true } },
-            department: true,
+    const where: any = {
+      tenantId,
+      deletedAt: null,
+    };
+
+    if (status && typeof status === "string" && status !== "ALL") {
+      where.status = status;
+    }
+
+    if (priority && typeof priority === "string" && priority !== "ALL") {
+      where.priority = priority;
+    }
+
+    if (search && typeof search === "string" && search.trim()) {
+      const searchTerm = search.trim();
+      where.OR = [
+        { title: { contains: searchTerm, mode: "insensitive" } },
+        { customerName: { contains: searchTerm, mode: "insensitive" } },
+        { customerEmail: { contains: searchTerm, mode: "insensitive" } },
+        { externalReferenceId: { contains: searchTerm, mode: "insensitive" } },
+      ];
+    }
+
+    const isPaginated = paginated === "true" || page !== undefined || limit !== undefined;
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.max(1, Math.min(100, Number(limit) || 25));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [totalCount, complaints] = await Promise.all([
+      db.complaint.count({ where }),
+      db.complaint.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        ...(isPaginated && { skip, take: limitNum }),
+        include: {
+          assignments: {
+            orderBy: { assignedAt: "desc" },
+            include: {
+              employee: { include: { user: true } },
+              department: true,
+            },
           },
         },
-      },
-    });
+      }),
+    ]);
 
     const formatted = complaints.map((c) => {
       const assignment = c.assignments[0] || null;
@@ -458,10 +750,29 @@ export const getAllComplaints = async (req: Request, res: Response) => {
       };
     });
 
+    if (isPaginated && paginated === "true") {
+      const totalPages = Math.ceil(totalCount / limitNum);
+      return res.status(200).json({
+        data: formatted,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          totalCount,
+          totalPages,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1,
+        },
+      });
+    }
+
     return res.status(200).json(formatted);
   } catch (err) {
     console.error("GetAllComplaints error:", err);
-    return res.status(500).json({ message: "Internal server error" });
+    return sendProblemDetails(res, {
+      status: 500,
+      title: "Internal Server Error",
+      detail: "Failed to fetch complaints list.",
+    });
   }
 };
 
@@ -558,7 +869,7 @@ export const updateComplaintStatus = async (req: Request, res: Response) => {
       }
     }
 
-    const updated = await db.$transaction(async (tx) => {
+    const { updated, syncedLoads } = await db.$transaction(async (tx) => {
       const complaint = await tx.complaint.update({
         where: { id: complaintId },
         data: {
@@ -567,10 +878,12 @@ export const updateComplaintStatus = async (req: Request, res: Response) => {
         },
       });
 
-      await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
-      return complaint;
+      const loads = await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
+      return { updated: complaint, syncedLoads: loads };
     });
 
+    // Sockets emitted safely AFTER transaction commits
+    WorkloadService.emitLoadUpdates(syncedLoads);
     ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
       id: updated.id,
       status: updated.status,
@@ -610,15 +923,16 @@ export const deleteComplaint = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Complaint not found or access denied" });
     }
 
-    await db.$transaction(async (tx) => {
+    const syncedLoads = await db.$transaction(async (tx) => {
       await tx.complaint.update({
         where: { id: complaintId },
         data: { deletedAt: new Date() },
       });
 
-      await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
+      return await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
     });
 
+    WorkloadService.emitLoadUpdates(syncedLoads);
     ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
       id: complaintId,
       status: "deleted",
@@ -653,15 +967,16 @@ export const restoreComplaint = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Complaint not found or access denied" });
     }
 
-    await db.$transaction(async (tx) => {
+    const syncedLoads = await db.$transaction(async (tx) => {
       await tx.complaint.update({
         where: { id: complaintId },
         data: { deletedAt: null },
       });
 
-      await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
+      return await WorkloadService.syncComplaintEmployeeLoads(tx, complaintId);
     });
 
+    WorkloadService.emitLoadUpdates(syncedLoads);
     ComplaintsSocket.emitTicketStatusChanged(tenantId, complaintId, {
       id: complaintId,
       status: "open",
@@ -710,7 +1025,7 @@ export const assignComplaintToEmployee = async (req: Request, res: Response) => 
       return res.status(404).json({ message: "Complaint not found or access denied" });
     }
 
-    await db.$transaction(async (tx) => {
+    const syncedLoads = await db.$transaction(async (tx) => {
       const oldAssignments = await tx.assignment.findMany({ where: { complaintId, tenantId } });
 
       await tx.assignment.upsert({
@@ -730,14 +1045,18 @@ export const assignComplaintToEmployee = async (req: Request, res: Response) => 
         },
       });
 
+      const loads = [];
       for (const old of oldAssignments) {
         if (old.employeeId && old.employeeId !== employeeId) {
-          await WorkloadService.syncEmployeeLoad(tx, old.employeeId);
+          loads.push(await WorkloadService.syncEmployeeLoad(tx, old.employeeId));
         }
       }
 
-      await WorkloadService.syncEmployeeLoad(tx, employeeId);
+      loads.push(await WorkloadService.syncEmployeeLoad(tx, employeeId));
+      return loads;
     });
+
+    WorkloadService.emitLoadUpdates(syncedLoads);
 
     ComplaintsSocket.emitTicketReassigned(tenantId, complaintId, {
       complaintId,
@@ -798,16 +1117,16 @@ export const assignComplaintToDepartment = async (req: Request, res: Response) =
       return res.status(404).json({ message: "Complaint not found or access denied" });
     }
 
-    let assignedEmployeeUserId: string | null = null;
-
-    await db.$transaction(async (tx) => {
+    const { assignedEmployeeUserId, syncedLoads } = await db.$transaction(async (tx) => {
       const oldAssignments = await tx.assignment.findMany({ where: { complaintId, tenantId } });
 
-      // Automatically select the least-loaded employee in the chosen department
+      // Automatically select the least-loaded employee in the chosen department (O(1) direct query)
       const leastLoaded = await WorkloadService.selectLeastLoadedEmployee(tx, tenantId, departmentId);
+      let assignedUserId: string | null = null;
+      const loads = [];
 
       if (leastLoaded) {
-        assignedEmployeeUserId = leastLoaded.userId;
+        assignedUserId = leastLoaded.userId;
         await tx.assignment.upsert({
           where: { complaintId },
           create: {
@@ -824,7 +1143,7 @@ export const assignComplaintToDepartment = async (req: Request, res: Response) =
             assignedAt: new Date(),
           },
         });
-        await WorkloadService.syncEmployeeLoad(tx, leastLoaded.id);
+        loads.push(await WorkloadService.syncEmployeeLoad(tx, leastLoaded.id));
       } else {
         await tx.assignment.upsert({
           where: { complaintId },
@@ -846,10 +1165,14 @@ export const assignComplaintToDepartment = async (req: Request, res: Response) =
 
       for (const old of oldAssignments) {
         if (old.employeeId && (!leastLoaded || old.employeeId !== leastLoaded.id)) {
-          await WorkloadService.syncEmployeeLoad(tx, old.employeeId);
+          loads.push(await WorkloadService.syncEmployeeLoad(tx, old.employeeId));
         }
       }
+
+      return { assignedEmployeeUserId: assignedUserId, syncedLoads: loads };
     });
+
+    WorkloadService.emitLoadUpdates(syncedLoads);
 
     ComplaintsSocket.emitTicketReassigned(tenantId, complaintId, {
       complaintId,

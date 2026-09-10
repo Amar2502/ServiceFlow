@@ -187,9 +187,9 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
 
   return (
     <>
-      <div className="rounded-md border border-[#EED9C4] overflow-hidden">
+      <div className="rounded-md border border-border overflow-hidden">
         <Table>
-          <TableHeader className="bg-[#faf6f2]">
+          <TableHeader className="bg-muted/50">
             <TableRow>
               <TableHead className="w-[100px]">ID</TableHead>
               <TableHead className="w-[240px]">Employee</TableHead>
@@ -201,7 +201,7 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
           <TableBody>
             {employees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-xs text-slate-400">
+                <TableCell colSpan={5} className="h-24 text-center text-xs text-muted-foreground">
                   No active employees found.
                 </TableCell>
               </TableRow>
@@ -210,30 +210,30 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
                 const name = employee.user?.name || employee.name || "N/A";
                 const email = employee.user?.email || "No email";
                 return (
-                  <TableRow key={employee.id} className="hover:bg-slate-50 transition-colors">
-                    <TableCell className="font-mono text-xs text-slate-500 font-semibold">
+                  <TableRow key={employee.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell className="font-mono text-xs text-muted-foreground font-semibold">
                       #{employee.id.substring(0, 6)}
                     </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-[#c9a382] text-white text-xs">
+                          <AvatarFallback className="bg-accent text-accent-foreground text-xs">
                             {getInitials(name)}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className="font-semibold text-slate-900 text-sm">{name}</div>
-                          <div className="text-xs text-slate-500">{email}</div>
+                          <div className="font-semibold text-foreground text-sm">{name}</div>
+                          <div className="text-xs text-muted-foreground">{email}</div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-xs bg-slate-50">
+                      <Badge variant="outline" className="text-xs bg-muted/50">
                         {employee.user?.role || "AGENT"}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-blue-100 text-blue-900 border-blue-200 font-bold">
+                      <Badge className="bg-blue-100 dark:bg-blue-950/60 text-blue-900 dark:text-blue-300 border-blue-200 dark:border-blue-800 font-bold">
                         {employee.load || 0} active ticket(s)
                       </Badge>
                     </TableCell>
@@ -255,7 +255,7 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
                             Map to Department
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(employee)}>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(employee)}>
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete Employee
                           </DropdownMenuItem>
@@ -272,9 +272,9 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
 
       {/* Edit Name Dialog */}
       <Dialog open={showEditName} onOpenChange={setShowEditName}>
-        <DialogContent className="bg-[#faf6f2]">
+        <DialogContent className="bg-background">
           <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Edit Employee Name</DialogTitle>
+            <DialogTitle className="text-foreground">Edit Employee Name</DialogTitle>
             <DialogDescription>Update staff member name</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
@@ -284,7 +284,7 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="bg-white mt-2 text-xs"
+                className="bg-background mt-2 text-xs"
                 placeholder="Enter employee name"
               />
             </div>
@@ -292,7 +292,7 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
               <Button variant="outline" onClick={() => setShowEditName(false)} className="text-xs">
                 Cancel
               </Button>
-              <Button className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs" onClick={submitEditName} disabled={loading}>
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs" onClick={submitEditName} disabled={loading}>
                 {loading ? "Updating..." : "Update Name"}
               </Button>
             </div>
@@ -302,9 +302,9 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
 
       {/* Map to Department Dialog */}
       <Dialog open={showMapDepartment} onOpenChange={setShowMapDepartment}>
-        <DialogContent className="bg-[#faf6f2]">
+        <DialogContent className="bg-background">
           <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Map to Department</DialogTitle>
+            <DialogTitle className="text-foreground">Map to Department</DialogTitle>
             <DialogDescription>Assign this employee to a department queue</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
@@ -314,7 +314,7 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
                 value={formData.departmentId}
                 onValueChange={(value) => setFormData({ ...formData, departmentId: value })}
               >
-                <SelectTrigger className="bg-white mt-2 text-xs">
+                <SelectTrigger className="bg-background mt-2 text-xs">
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
@@ -330,7 +330,7 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
               <Button variant="outline" onClick={() => setShowMapDepartment(false)} className="text-xs">
                 Cancel
               </Button>
-              <Button className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs" onClick={submitMapDepartment} disabled={loading}>
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs" onClick={submitMapDepartment} disabled={loading}>
                 {loading ? "Mapping..." : "Map Department"}
               </Button>
             </div>
@@ -340,16 +340,16 @@ export function EmployeesTable({ employees, onRefresh }: EmployeesTableProps) {
 
       {/* Delete Dialog */}
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
-        <DialogContent className="bg-[#faf6f2]">
+        <DialogContent className="bg-background">
           <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Delete Employee</DialogTitle>
+            <DialogTitle className="text-foreground">Delete Employee</DialogTitle>
             <DialogDescription>Soft-delete this staff member?</DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 justify-end mt-4">
             <Button variant="outline" onClick={() => setShowDelete(false)} className="text-xs">
               Cancel
             </Button>
-            <Button className="bg-red-600 hover:bg-red-700 text-xs" onClick={submitDelete} disabled={loading}>
+            <Button className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs" onClick={submitDelete} disabled={loading}>
               {loading ? "Deleting..." : "Confirm Delete"}
             </Button>
           </div>

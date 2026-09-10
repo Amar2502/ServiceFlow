@@ -126,8 +126,8 @@ function NavLinks({
               className={cn(
                 "flex items-center rounded-lg px-3 py-2.5 w-full text-left transition-colors text-xs font-medium",
                 active
-                  ? "bg-[#c9a382]/40 text-[#3d2a1c] font-semibold"
-                  : "hover:bg-[#dfc7ae]/80 text-[#4a3728]"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                  : "hover:bg-sidebar-accent/50 text-sidebar-foreground/80"
               )}
             >
               {item.icon}
@@ -160,27 +160,27 @@ export default function DashboardLayout({
 
   if (!ready || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#faf6f2] text-xs text-slate-500">
+      <div className="min-h-screen flex items-center justify-center bg-background text-xs text-muted-foreground">
         Authenticating session...
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-[#faf6f2]">
+    <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <OnboardingModal forceOpen={showGuide} onClose={() => setShowGuide(false)} />
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex bg-[#EED9C4] text-[#3d2a1c] w-64 shrink-0 flex-col border-r border-[#dfc7ae] min-h-screen">
-        <div className="flex items-center gap-2.5 p-4 border-b border-[#dfc7ae]">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#3d2a1c] text-[#EED9C4] shadow-sm">
+      <aside className="hidden md:flex bg-sidebar text-sidebar-foreground w-64 shrink-0 flex-col border-r border-sidebar-border min-h-screen">
+        <div className="flex items-center gap-2.5 p-4 border-b border-sidebar-border">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
             <Terminal className="h-5 w-5" />
           </div>
           <div>
             <Link href="/dashboard" className="font-bold text-base leading-tight block">
               ServiceFlow
             </Link>
-            <p className="text-[10px] uppercase font-mono tracking-wider text-[#6b5344]">
+            <p className="text-[10px] uppercase font-mono tracking-wider text-muted-foreground">
               Enterprise SaaS
             </p>
           </div>
@@ -190,31 +190,31 @@ export default function DashboardLayout({
           <NavLinks />
         </nav>
 
-        <div className="border-t border-[#dfc7ae] p-4 space-y-2">
+        <div className="border-t border-sidebar-border p-4 space-y-2">
           <Button
             variant="outline"
             size="sm"
-            className="w-full justify-start text-xs font-semibold border-[#3d2a1c]/30 bg-[#3d2a1c]/10 hover:bg-[#3d2a1c] hover:text-[#EED9C4] text-[#3d2a1c] transition-all"
+            className="w-full justify-start text-xs font-semibold border-sidebar-foreground/20 bg-sidebar-foreground/5 hover:bg-sidebar-primary hover:text-sidebar-primary-foreground text-sidebar-foreground transition-all"
             onClick={() => setShowGuide(true)}
           >
-            <HelpCircle className="h-4 w-4 mr-2 text-amber-700" />
+            <HelpCircle className="h-4 w-4 mr-2 text-amber-600" />
             Interactive Guide
           </Button>
 
-          <div className="rounded-lg bg-[#dfc7ae]/50 px-3 py-2 text-xs">
+          <div className="rounded-lg bg-sidebar-accent/50 px-3 py-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-900">{user.role}</span>
-              <span className="text-[10px] bg-[#3d2a1c] text-[#EED9C4] px-1.5 py-0.5 rounded font-mono">
+              <span className="font-semibold text-foreground">{user.role}</span>
+              <span className="text-[10px] bg-sidebar-primary text-sidebar-primary-foreground px-1.5 py-0.5 rounded font-mono">
                 {user.role === "ADMIN" ? "Admin" : "Agent"}
               </span>
             </div>
-            <p className="text-[#6b5344] truncate text-[11px] font-mono mt-0.5">
+            <p className="text-muted-foreground truncate text-[11px] font-mono mt-0.5">
               ID: {user.userId.slice(0, 8)}…
             </p>
           </div>
           <Button
             variant="ghost"
-            className="w-full justify-start text-[#554635] hover:bg-red-600/90 hover:text-white text-xs font-medium"
+            className="w-full justify-start text-muted-foreground hover:bg-destructive hover:text-white text-xs font-medium"
             onClick={() => logout()}
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -224,9 +224,9 @@ export default function DashboardLayout({
       </aside>
 
       {/* Mobile header */}
-      <header className="flex md:hidden items-center justify-between gap-2 border-b border-[#dfc7ae] bg-[#EED9C4] px-4 py-3">
+      <header className="flex md:hidden items-center justify-between gap-2 border-b border-sidebar-border bg-sidebar px-4 py-3">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3d2a1c] text-[#EED9C4] shrink-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
             <Terminal className="h-4 w-4" />
           </div>
           <span className="font-bold truncate text-sm">ServiceFlow</span>
@@ -236,11 +236,11 @@ export default function DashboardLayout({
           <NotificationBell />
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="bg-white border-[#dfc7ae]">
+              <Button variant="outline" size="icon" className="bg-card border-border">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="bg-[#EED9C4] border-[#dfc7ae] w-72">
+            <SheetContent side="left" className="bg-sidebar border-sidebar-border w-72">
               <SheetHeader>
                 <SheetTitle className="text-left text-sm">Navigation Menu</SheetTitle>
               </SheetHeader>
@@ -249,7 +249,7 @@ export default function DashboardLayout({
               </nav>
               <Button
                 variant="ghost"
-                className="mt-8 w-full justify-start hover:bg-red-600/90 hover:text-white text-xs"
+                className="mt-8 w-full justify-start hover:bg-destructive hover:text-white text-xs"
                 onClick={() => {
                   setMobileOpen(false);
                   logout();
@@ -265,12 +265,12 @@ export default function DashboardLayout({
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="hidden md:flex items-center justify-between border-b border-[#dfc7ae] bg-[#EED9C4]/40 px-8 py-2.5">
-          <div className="flex items-center gap-3 text-xs text-[#6b5344] font-medium">
+        <header className="hidden md:flex items-center justify-between border-b border-border bg-muted/40 px-8 py-2.5">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
             <span>
-              Workspace Tenant ID: <span className="font-mono bg-[#dfc7ae]/40 px-2 py-0.5 rounded text-[#3d2a1c]">{user.tenantId}</span>
+              Workspace Tenant ID: <span className="font-mono bg-muted px-2 py-0.5 rounded text-foreground">{user.tenantId}</span>
             </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#3d2a1c] text-[#EED9C4] gap-1">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary text-primary-foreground gap-1">
               Strategy: {user.routingMode === "EMPLOYEE" ? "EMPLOYEE (Direct Agent)" : "DEPARTMENT (Workload)"}
             </span>
           </div>

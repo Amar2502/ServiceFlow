@@ -74,10 +74,10 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Card className="bg-white border-[#EED9C4]">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">My Open Queue</CardTitle>
-              <ClipboardList className="h-4 w-4 text-[#c9a382]" />
+              <ClipboardList className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{loading ? "…" : myAssignments.filter(c => c.status !== "resolved").length}</div>
@@ -85,7 +85,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-[#EED9C4]">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Resolved by Me</CardTitle>
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -96,9 +96,9 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-[#EED9C4] flex flex-col justify-center">
+          <Card className="flex flex-col justify-center">
             <CardContent className="pt-6">
-              <Button asChild className="w-full bg-[#3d2a1c] hover:bg-[#2a1d14] text-[#faf6f2]">
+              <Button asChild className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Link href="/dashboard/my-assignments">
                   <ClipboardList className="h-4 w-4 mr-2" />
                   View My Assignments Queue
@@ -108,19 +108,19 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        <Card className="border-dashed border-[#dfc7ae] bg-[#faf6f2]">
+        <Card className="border-dashed bg-card/50">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Terminal className="h-4 w-4 text-[#8c6d4e]" />
+              <Terminal className="h-4 w-4 text-muted-foreground" />
               API Ingestion Notice
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
               Incoming customer tickets arrive via{" "}
-              <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono text-[#3d2a1c]">POST /api/complaints/create</code>{" "}
+              <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono text-foreground">POST /api/complaints/create</code>{" "}
               with a valid Bearer API key. See{" "}
-              <Link href="/dashboard/api-docs" className="text-[#8c6d4e] underline font-medium">
+              <Link href="/dashboard/api-docs" className="text-primary underline font-medium">
                 API Docs
               </Link>{" "}
               for integration samples.
@@ -137,7 +137,7 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight">Console Overview</h1>
-            <Badge className={user?.routingMode === "EMPLOYEE" ? "bg-purple-100 text-purple-900 border-purple-300 font-mono text-[11px]" : "bg-amber-100 text-amber-900 border-amber-300 font-mono text-[11px]"}>
+            <Badge className={user?.routingMode === "EMPLOYEE" ? "bg-purple-100 dark:bg-purple-950/60 text-purple-900 dark:text-purple-300 border-purple-300 dark:border-purple-800 font-mono text-[11px]" : "bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-mono text-[11px]"}>
               <Sparkles className="h-3 w-3 mr-1" />
               Strategy: {user?.routingMode === "EMPLOYEE" ? "EMPLOYEE (Direct Role)" : "DEPARTMENT (Workload Balancer)"}
             </Badge>
@@ -148,10 +148,10 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" className="bg-white border-[#dfc7ae]">
+          <Button asChild variant="outline">
             <Link href="/dashboard/complaints">Manage Complaints Queue</Link>
           </Button>
-          <Button asChild className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-[#faf6f2]">
+          <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground">
             <Link href="/dashboard/api-docs">API Docs</Link>
           </Button>
         </div>
@@ -159,10 +159,10 @@ export default function DashboardPage() {
 
       {/* Primary Metrics Cards Connected to Real Backend API */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card className="bg-white border-[#EED9C4]">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Complaints</CardTitle>
-            <MessageSquare className="h-4 w-4 text-[#c9a382]" />
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{loading ? "…" : activeComplaints.length}</div>
@@ -170,7 +170,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-[#EED9C4]">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Active / Pending</CardTitle>
             <FileText className="h-4 w-4 text-amber-500" />
@@ -181,7 +181,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-[#EED9C4]">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Resolved</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -192,10 +192,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-[#EED9C4]">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Active Agents</CardTitle>
-            <Users className="h-4 w-4 text-[#c9a382]" />
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{loading ? "…" : employees.length}</div>
@@ -203,10 +203,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-[#EED9C4]">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Distinct Customers</CardTitle>
-            <BarChart2 className="h-4 w-4 text-[#c9a382]" />
+            <BarChart2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{loading ? "…" : customersSet.size}</div>
@@ -216,13 +216,13 @@ export default function DashboardPage() {
       </div>
 
       {unassignedComplaints.length > 0 && (
-        <Card className="border-amber-300 bg-amber-50/50">
+        <Card className="border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
           <CardContent className="py-3 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 text-amber-900 text-sm font-medium">
+            <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 text-sm font-medium">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
               <span>{unassignedComplaints.length} complaint(s) require Admin manual routing assignment.</span>
             </div>
-            <Button asChild size="sm" variant="outline" className="border-amber-400 text-amber-900 hover:bg-amber-100">
+            <Button asChild size="sm" variant="outline" className="border-amber-400 dark:border-amber-700 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50">
               <Link href="/dashboard/complaints">Review Unassigned Queue</Link>
             </Button>
           </CardContent>
@@ -231,7 +231,7 @@ export default function DashboardPage() {
 
       {/* Tabs with Real Analytics & Recent Complaints */}
       <Tabs defaultValue="recent" className="space-y-4">
-        <TabsList className="bg-[#f5eadf]">
+        <TabsList className="bg-muted">
           <TabsTrigger value="recent">Latest Tickets</TabsTrigger>
           <TabsTrigger value="overview">Analytics & MTTR Overview</TabsTrigger>
         </TabsList>

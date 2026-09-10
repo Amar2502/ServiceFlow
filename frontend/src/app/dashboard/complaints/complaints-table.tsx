@@ -92,8 +92,8 @@ export function ComplaintsTable({
 
     if (!assignment) {
       return (
-        <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-semibold flex items-center gap-1 text-[11px]">
-          <ShieldAlert className="h-3 w-3 text-amber-700 animate-pulse" />
+        <Badge className="bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-semibold flex items-center gap-1 text-[11px]">
+          <ShieldAlert className="h-3 w-3 text-amber-700 dark:text-amber-400 animate-pulse" />
           Unassigned
         </Badge>
       );
@@ -101,7 +101,7 @@ export function ComplaintsTable({
 
     if (assignment.employee_name) {
       return (
-        <span className="text-xs text-slate-800 font-medium inline-flex items-center gap-1">
+        <span className="text-xs text-foreground font-medium inline-flex items-center gap-1">
           <UserCheck className="h-3 w-3 text-blue-600" />
           {assignment.employee_name}
         </span>
@@ -110,24 +110,24 @@ export function ComplaintsTable({
 
     if (assignment.department_name) {
       return (
-        <span className="text-xs text-slate-800 font-medium inline-flex items-center gap-1">
+        <span className="text-xs text-foreground font-medium inline-flex items-center gap-1">
           <Building2 className="h-3 w-3 text-purple-600" />
           {assignment.department_name}
         </span>
       );
     }
 
-    return <span className="text-xs text-slate-400">-</span>;
+    return <span className="text-xs text-muted-foreground">-</span>;
   };
 
   const renderSlaBadge = (complaint: ComplaintItem) => {
     if (complaint.status === "resolved") {
-      return <span className="text-xs text-gray-500 font-medium">Resolved</span>;
+      return <span className="text-xs text-muted-foreground font-medium">Resolved</span>;
     }
 
     if (complaint.is_sla_breached) {
       return (
-        <Badge className="bg-red-100 text-red-800 border-red-300 font-bold flex items-center gap-1">
+        <Badge className="bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 border-red-300 dark:border-red-800 font-bold flex items-center gap-1">
           <AlertTriangle className="h-3 w-3 text-red-600 animate-pulse" />
           SLA BREACHED
         </Badge>
@@ -135,7 +135,7 @@ export function ComplaintsTable({
     }
 
     if (!complaint.sla_due_at) {
-      return <span className="text-xs text-gray-400">-</span>;
+      return <span className="text-xs text-muted-foreground">-</span>;
     }
 
     const due = new Date(complaint.sla_due_at).getTime();
@@ -144,23 +144,23 @@ export function ComplaintsTable({
 
     if (diffHours < 0) {
       return (
-        <Badge className="bg-red-100 text-red-800 border-red-300 font-bold">
+        <Badge className="bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 border-red-300 dark:border-red-800 font-bold">
           SLA BREACHED
         </Badge>
       );
     }
 
     return (
-      <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+      <span className="text-xs font-semibold text-foreground bg-muted px-2 py-1 rounded border border-border">
         In {diffHours}h
       </span>
     );
   };
 
   return (
-    <div className="rounded-md border border-[#EED9C4] bg-white overflow-hidden shadow-sm">
+    <div className="rounded-md border border-border bg-card overflow-hidden shadow-sm">
       <Table>
-        <TableHeader className="bg-[#faf6f2]">
+        <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead className="text-left w-[8ch]">ID</TableHead>
             <TableHead className="text-left">Customer</TableHead>
@@ -183,11 +183,11 @@ export function ComplaintsTable({
             complaints.map((complaint) => {
               const isDeleted = complaint.status === "deleted";
               return (
-                <TableRow key={complaint.id} className="hover:bg-slate-50/80 transition-colors">
+                <TableRow key={complaint.id} className="hover:bg-muted/50 transition-colors">
                   <TableCell className="font-mono text-xs font-semibold">
                     <Link
                       href={`/dashboard/complaints/${complaint.id}`}
-                      className="text-slate-500 hover:text-indigo-600 hover:underline transition-colors"
+                      className="text-muted-foreground hover:text-primary hover:underline transition-colors"
                       title="View full complaint details"
                     >
                       #{complaint.id.substring(0, 6)}
@@ -199,11 +199,11 @@ export function ComplaintsTable({
                       <div>
                         <Link
                           href={`/dashboard/complaints/${complaint.id}`}
-                          className="font-medium text-slate-900 hover:text-indigo-600 hover:underline transition-colors"
+                          className="font-medium text-foreground hover:text-primary hover:underline transition-colors"
                         >
                           {complaint.customer_name || "Anonymous Customer"}
                         </Link>
-                        <div className="text-xs text-slate-500">{complaint.customer_email || "No email"}</div>
+                        <div className="text-xs text-muted-foreground">{complaint.customer_email || "No email"}</div>
                       </div>
                     </div>
                   </TableCell>
@@ -211,11 +211,11 @@ export function ComplaintsTable({
                     <div className="flex flex-col space-y-1">
                       <Link
                         href={`/dashboard/complaints/${complaint.id}`}
-                        className="text-sm font-semibold text-slate-900 hover:text-indigo-600 hover:underline truncate transition-colors"
+                        className="text-sm font-semibold text-foreground hover:text-primary hover:underline truncate transition-colors"
                       >
                         {complaint.title}
                       </Link>
-                      <p className="text-xs text-slate-500 line-clamp-2">
+                      <p className="text-xs text-muted-foreground line-clamp-2">
                         {complaint.summary || complaint.description || "No details provided"}
                       </p>
                     </div>
@@ -235,7 +235,7 @@ export function ComplaintsTable({
                       <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem asChild>
                           <Link href={`/dashboard/complaints/${complaint.id}`} className="flex items-center">
-                            <ExternalLink className="h-4 w-4 mr-2 text-indigo-600" />
+                            <ExternalLink className="h-4 w-4 mr-2 text-primary" />
                             Open Ticket Details Page
                           </Link>
                         </DropdownMenuItem>
@@ -259,14 +259,14 @@ export function ComplaintsTable({
                         )}
                         {onStatusUpdate && !isDeleted && (
                           <DropdownMenuItem onClick={() => onStatusUpdate(complaint)}>
-                            <Edit className="h-4 w-4 mr-2 text-slate-600" />
+                            <Edit className="h-4 w-4 mr-2 text-muted-foreground" />
                             Update Status
                           </DropdownMenuItem>
                         )}
                         {onDelete && !isDeleted && (
                           <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600" onClick={() => onDelete(complaint)}>
+                            <DropdownMenuItem className="text-destructive" onClick={() => onDelete(complaint)}>
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete Complaint
                             </DropdownMenuItem>

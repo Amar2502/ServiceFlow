@@ -88,16 +88,16 @@ export default function SettingsPage() {
     <RbacGuard allowedRoles={["ADMIN"]}>
       <div className="flex-1 overflow-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#3d2a1c]">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Tenant Settings & Workspace Configuration
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Administrative settings for organization profile and GenAI routing algorithms.
           </p>
         </div>
 
         {/* Current Active Strategy Banner */}
-        <div className="bg-[#3d2a1c] text-[#faf6f2] rounded-lg p-5 shadow-sm space-y-2">
+        <div className="bg-primary text-primary-foreground rounded-lg p-5 shadow-sm space-y-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-amber-300" />
@@ -107,7 +107,7 @@ export default function SettingsPage() {
               {currentMode === "EMPLOYEE" ? "EMPLOYEE MODE ACTIVE" : "DEPARTMENT MODE ACTIVE"}
             </Badge>
           </div>
-          <p className="text-xs text-[#dfc7ae] leading-relaxed">
+          <p className="text-xs text-primary-foreground/80 leading-relaxed">
             {currentMode === "EMPLOYEE" ? (
               <>
                 <strong>Direct Employee Strategy Active:</strong> Inbound complaints match directly against employee titles.
@@ -121,9 +121,9 @@ export default function SettingsPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <Card className="bg-white border-[#EED9C4] shadow-sm">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-[#5a3e2b]">
+              <CardTitle className="text-lg font-semibold text-foreground">
                 Organization Profile
               </CardTitle>
               <CardDescription>
@@ -142,13 +142,13 @@ export default function SettingsPage() {
                     value={tenantName}
                     onChange={(e) => setTenantName(e.target.value)}
                     required
-                    className="bg-white text-xs border-[#dfc7ae]"
+                    className="bg-background text-xs"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs font-medium"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium"
                 >
                   {loading ? "Updating..." : "Update Tenant Name"}
                 </Button>
@@ -156,9 +156,9 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-[#EED9C4] shadow-sm">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-[#5a3e2b]">
+              <CardTitle className="text-lg font-semibold text-foreground">
                 Groq AI Routing Strategy
               </CardTitle>
               <CardDescription>
@@ -175,7 +175,7 @@ export default function SettingsPage() {
                     value={routingMode}
                     onValueChange={(val: "DEPARTMENT" | "EMPLOYEE") => setRoutingMode(val)}
                   >
-                    <SelectTrigger className="bg-white text-xs border-[#dfc7ae]">
+                    <SelectTrigger className="bg-background text-xs">
                       <SelectValue placeholder="Select strategy" />
                     </SelectTrigger>
                     <SelectContent>
@@ -189,16 +189,16 @@ export default function SettingsPage() {
                   </Select>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-md p-3 text-xs text-slate-700 space-y-1.5">
-                  <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                <div className="bg-muted/50 border border-border rounded-md p-3 text-xs text-muted-foreground space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-semibold text-foreground">
                     {routingMode === "DEPARTMENT" ? (
-                      <Building2 className="h-4 w-4 text-amber-700" />
+                      <Building2 className="h-4 w-4 text-amber-600" />
                     ) : (
-                      <UserCheck className="h-4 w-4 text-purple-700" />
+                      <UserCheck className="h-4 w-4 text-purple-600" />
                     )}
                     Selected: {routingMode === "DEPARTMENT" ? "Department Routing Mode" : "Employee Title Direct Routing Mode"}
                   </div>
-                  <p className="text-[11px] text-slate-600">
+                  <p className="text-[11px] text-muted-foreground">
                     {routingMode === "DEPARTMENT"
                       ? "Complaints route to department names, then load-balances staff within that department."
                       : "Complaints route directly to individual staff based on employee titles."}
@@ -208,7 +208,7 @@ export default function SettingsPage() {
                 <Button
                   type="submit"
                   disabled={routingLoading}
-                  className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs font-medium w-full"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium w-full"
                 >
                   {routingLoading ? "Saving Strategy..." : "Save Routing Mode"}
                 </Button>

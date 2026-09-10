@@ -115,26 +115,26 @@ export default function ComplaintsPage() {
     <div className="flex-1 overflow-auto space-y-5">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#3d2a1c]">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Complaint Triage & Resolution Center
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Real-time multi-tenant complaint management, SLA enforcement, and Groq GenAI triage.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/dashboard/apikeys">
-            <Button variant="outline" className="bg-white border-[#dfc7ae] text-xs font-medium">
-              <Key className="h-4 w-4 mr-1.5 text-amber-800" />
+            <Button variant="outline" className="text-xs font-medium">
+              <Key className="h-4 w-4 mr-1.5 text-amber-600" />
               API Key Credentials
             </Button>
           </Link>
         </div>
       </div>
 
-      <Card className="bg-white border-[#EED9C4] shadow-sm">
-        <CardHeader className="pb-3 border-b border-[#faf6f2]">
-          <CardTitle className="text-lg font-semibold text-[#5a3e2b]">All Ingested Complaints</CardTitle>
+      <Card>
+        <CardHeader className="pb-3 border-b border-border">
+          <CardTitle className="text-lg font-semibold text-foreground">All Ingested Complaints</CardTitle>
           <CardDescription>
             Track tickets through their automated SLA resolution lifecycle
           </CardDescription>
@@ -149,7 +149,7 @@ export default function ComplaintsPage() {
                   placeholder="Search title, customer, ref ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 bg-white w-[280px] text-xs"
+                  className="pl-8 bg-background w-[280px] text-xs"
                 />
               </div>
             </div>
@@ -157,7 +157,7 @@ export default function ComplaintsPage() {
             <div className="flex flex-wrap items-center gap-2">
               {/* Priority Filter */}
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-[140px] bg-white text-xs">
+                <SelectTrigger className="w-[140px] bg-background text-xs">
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -171,7 +171,7 @@ export default function ComplaintsPage() {
 
               {/* Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[170px] bg-white text-xs">
+                <SelectTrigger className="w-[170px] bg-background text-xs">
                   <SelectValue placeholder="Status Filter" />
                 </SelectTrigger>
                 <SelectContent>
@@ -190,14 +190,14 @@ export default function ComplaintsPage() {
                 </SelectContent>
               </Select>
 
-              <Button variant="outline" className="bg-white text-xs">
+              <Button variant="outline" className="text-xs">
                 <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
               </Button>
             </div>
           </div>
 
           {isLoading ? (
-            <div className="text-center py-12 text-xs text-slate-400">Loading complaints with TanStack Query...</div>
+            <div className="text-center py-12 text-xs text-muted-foreground">Loading complaints with TanStack Query...</div>
           ) : (
             <ComplaintsTable
               complaints={filteredComplaints}
@@ -265,9 +265,9 @@ export default function ComplaintsPage() {
 
       {/* Status Update Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent className="bg-[#faf6f2]">
+        <DialogContent className="bg-background">
           <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Update Complaint Status</DialogTitle>
+            <DialogTitle className="text-foreground">Update Complaint Status</DialogTitle>
             <DialogDescription>Select new status for ticket #{selectedComplaint?.id.substring(0, 7)}</DialogDescription>
           </DialogHeader>
           {selectedComplaint && (
@@ -290,7 +290,7 @@ export default function ComplaintsPage() {
               </Button>
               <Button
                 variant={selectedComplaint.status === "resolved" ? "default" : "outline"}
-                className="w-full bg-[#c9a382] hover:bg-[#b08e70] text-xs"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs"
                 onClick={() => handleStatusUpdate(selectedComplaint.id, "resolved")}
                 disabled={selectedComplaint.status === "resolved"}
               >
@@ -303,9 +303,9 @@ export default function ComplaintsPage() {
 
       {/* Delete Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="bg-[#faf6f2]">
+        <DialogContent className="bg-background">
           <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Soft Delete Complaint</DialogTitle>
+            <DialogTitle className="text-foreground">Soft Delete Complaint</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this complaint? Load counters will automatically recalibrate.
             </DialogDescription>
@@ -314,7 +314,7 @@ export default function ComplaintsPage() {
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="text-xs">
               Cancel
             </Button>
-            <Button className="bg-red-600 hover:bg-red-700 text-xs" onClick={handleDelete}>
+            <Button className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs" onClick={handleDelete}>
               Confirm Delete
             </Button>
           </div>
@@ -323,16 +323,16 @@ export default function ComplaintsPage() {
 
       {/* Restore Dialog */}
       <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
-        <DialogContent className="bg-[#faf6f2]">
+        <DialogContent className="bg-background">
           <DialogHeader>
-            <DialogTitle className="text-[#5a3e2b]">Restore Complaint</DialogTitle>
+            <DialogTitle className="text-foreground">Restore Complaint</DialogTitle>
             <DialogDescription>Restore complaint #{selectedComplaint?.id.substring(0, 7)} back to active queue?</DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 justify-end mt-4">
             <Button variant="outline" onClick={() => setShowRestoreDialog(false)} className="text-xs">
               Cancel
             </Button>
-            <Button className="bg-emerald-700 hover:bg-emerald-800 text-xs" onClick={handleRestore}>
+            <Button className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs" onClick={handleRestore}>
               Restore Ticket
             </Button>
           </div>

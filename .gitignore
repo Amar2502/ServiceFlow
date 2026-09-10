@@ -50,25 +50,8 @@ coverage/
 docker-data/
 *.pid
 
-# ----------------------------
-# Database
-# ----------------------------
-*.sqlite
-*.db
-
-# ----------------------------
-# Python (FastAPI / ML)
-# ----------------------------
-venv/
-__pycache__/
-*.pyc
-
-# ----------------------------
-# ML artifacts
-# ----------------------------
-models/
-model/
-
 .next/
 out/
 frontend/.next/
+
+REPORT.md

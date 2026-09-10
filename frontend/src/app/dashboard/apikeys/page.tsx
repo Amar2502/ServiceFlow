@@ -75,27 +75,27 @@ export default function ApiKeysPage() {
       <div className="flex-1 overflow-auto space-y-5">
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#3d2a1c]">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
               API Key Credentials & Access Control
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Manage Bearer tokens for external REST ingestion endpoints.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/dashboard/api-docs">
-              <Button variant="outline" className="bg-white text-xs">
+              <Button variant="outline" className="text-xs">
                 <BookOpen className="mr-1.5 h-3.5 w-3.5" /> View API Reference
               </Button>
             </Link>
 
             <Sheet>
               <SheetTrigger asChild>
-                <Button className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-[#faf6f2] text-xs font-medium">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium">
                   <Plus className="mr-1.5 h-4 w-4" /> Generate New API Key
                 </Button>
               </SheetTrigger>
-              <SheetContent className="bg-[#faf6f2] p-4">
+              <SheetContent className="bg-background p-4">
                 <SheetHeader>
                   <SheetTitle>Generate API Key</SheetTitle>
                   <SheetDescription>
@@ -105,11 +105,11 @@ export default function ApiKeysPage() {
 
                 {newKey ? (
                   <div className="mt-6 space-y-4">
-                    <div className="bg-amber-50 border border-amber-200 rounded-md p-4 space-y-2">
-                      <p className="text-xs font-bold text-amber-900">
+                    <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-md p-4 space-y-2">
+                      <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
                         ⚠️ Copy your secret API Key now!
                       </p>
-                      <p className="text-xs text-amber-800">
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
                         It will not be displayed again for security reasons.
                       </p>
                       <div className="flex items-center space-x-2 mt-2">
@@ -117,7 +117,7 @@ export default function ApiKeysPage() {
                           type={showKey ? "text" : "password"}
                           value={newKey}
                           readOnly
-                          className="bg-white font-mono text-xs"
+                          className="bg-card font-mono text-xs"
                         />
                         <Button
                           variant="ghost"
@@ -136,7 +136,7 @@ export default function ApiKeysPage() {
                       </div>
                     </div>
                     <Button
-                      className="w-full bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs"
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs"
                       onClick={() => setNewKey(null)}
                     >
                       Done
@@ -154,13 +154,13 @@ export default function ApiKeysPage() {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         required
-                        className="bg-white text-xs mt-2"
+                        className="bg-background text-xs mt-2"
                       />
                     </div>
 
                     <Button
                       type="submit"
-                      className="w-full bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs font-medium"
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium"
                       disabled={generateMutation.isPending}
                     >
                       {generateMutation.isPending ? "Generating..." : "Generate Key"}
@@ -172,20 +172,20 @@ export default function ApiKeysPage() {
           </div>
         </div>
 
-        <Card className="bg-white border-[#EED9C4] shadow-sm">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-[#5a3e2b]">Tenant API Keys</CardTitle>
+            <CardTitle className="text-lg font-semibold text-foreground">Tenant API Keys</CardTitle>
             <CardDescription>
               Active Bearer tokens authorized for complaint creation
             </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-10 text-xs text-slate-400">Loading API keys...</div>
+              <div className="text-center py-10 text-xs text-muted-foreground">Loading API keys...</div>
             ) : (
-              <div className="rounded-md border border-[#EED9C4] overflow-hidden">
+              <div className="rounded-md border border-border overflow-hidden">
                 <Table>
-                  <TableHeader className="bg-[#faf6f2]">
+                  <TableHeader className="bg-muted/50">
                     <TableRow>
                       <TableHead className="text-left">Key Descriptor</TableHead>
                       <TableHead className="text-left">Key Prefix</TableHead>
@@ -196,27 +196,27 @@ export default function ApiKeysPage() {
                   <TableBody>
                     {apiKeys.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-xs text-slate-400">
+                        <TableCell colSpan={4} className="text-center py-8 text-xs text-muted-foreground">
                           No active API keys found. Generate a key above to enable REST ingestion.
                         </TableCell>
                       </TableRow>
                     ) : (
                       apiKeys.map((key) => (
-                        <TableRow key={key.id} className="hover:bg-slate-50">
-                          <TableCell className="font-semibold text-xs text-slate-900">
+                        <TableRow key={key.id} className="hover:bg-muted/50">
+                          <TableCell className="font-semibold text-xs text-foreground">
                             {key.name}
                           </TableCell>
-                          <TableCell className="font-mono text-xs text-slate-600">
+                          <TableCell className="font-mono text-xs text-muted-foreground">
                             {key.key_prefix || "sf_live_"}••••••••••••
                           </TableCell>
-                          <TableCell className="text-xs text-slate-500">
+                          <TableCell className="text-xs text-muted-foreground">
                             {new Date(key.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-red-600 hover:text-red-800 hover:bg-red-50 text-xs"
+                              className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 text-xs"
                               onClick={() => handleDelete(key.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Revoke

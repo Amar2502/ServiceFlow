@@ -110,12 +110,12 @@ export default function EmployeesPage() {
     <RbacGuard allowedRoles={["ADMIN"]}>
       <div className="flex-1 overflow-auto space-y-5">
         {/* Strategy Context Banner */}
-        <div className="bg-slate-100 border border-slate-200 rounded-lg p-3.5 text-xs text-slate-800 flex items-center justify-between flex-wrap gap-2">
+        <div className="bg-muted/50 border border-border rounded-lg p-3.5 text-xs text-foreground flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             {isEmployeeMode ? (
-              <UserCheck className="h-4 w-4 text-purple-700 shrink-0" />
+              <UserCheck className="h-4 w-4 text-purple-600 shrink-0" />
             ) : (
-              <Building2 className="h-4 w-4 text-amber-700 shrink-0" />
+              <Building2 className="h-4 w-4 text-amber-600 shrink-0" />
             )}
             <span>
               {isEmployeeMode ? (
@@ -125,28 +125,28 @@ export default function EmployeesPage() {
               )}
             </span>
           </div>
-          <Badge className={isEmployeeMode ? "bg-purple-100 text-purple-800" : "bg-amber-100 text-amber-900"}>
+          <Badge className={isEmployeeMode ? "bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800" : "bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800"}>
             {isEmployeeMode ? "EMPLOYEE STRATEGY" : "DEPARTMENT STRATEGY"}
           </Badge>
         </div>
 
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#3d2a1c]">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Employee Workload & Capacity
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Real-time active load tracking and agent invitation portal.
             </p>
           </div>
           <div>
             <Sheet>
               <SheetTrigger asChild>
-                <Button className="bg-[#3d2a1c] hover:bg-[#2a1d14] text-[#faf6f2] text-xs font-medium">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium">
                   <Plus className="mr-1.5 h-4 w-4" /> Invite Employee
                 </Button>
               </SheetTrigger>
-              <SheetContent className="bg-[#faf6f2] p-4">
+              <SheetContent className="bg-background p-4">
                 <SheetHeader>
                   <SheetTitle>Invite New Staff</SheetTitle>
                   <SheetDescription>
@@ -156,15 +156,15 @@ export default function EmployeesPage() {
 
                 {generatedInvite ? (
                   <div className="mt-6 space-y-4">
-                    <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
-                      <p className="text-xs font-medium text-amber-900 mb-2">
+                    <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-md p-4">
+                      <p className="text-xs font-medium text-amber-900 dark:text-amber-200 mb-2">
                         ⚠️ Single-use link: Share this invite link with the staff member. It expires in 24 hours and is deleted once accepted.
                       </p>
                       <div className="flex items-center space-x-2">
                         <Input
                           value={generatedInvite.invite_url}
                           readOnly
-                          className="bg-white font-mono text-xs"
+                          className="bg-card font-mono text-xs"
                         />
                         <Button
                           variant="outline"
@@ -180,7 +180,7 @@ export default function EmployeesPage() {
                       </div>
                     </div>
                     <Button
-                      className="w-full bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs"
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs"
                       onClick={() => {
                         setGeneratedInvite(null);
                         setInviteRole("AGENT");
@@ -194,14 +194,14 @@ export default function EmployeesPage() {
                 ) : (
                   <form onSubmit={handleCreateInvite} className="space-y-4 mt-6">
                     <div>
-                      <Label htmlFor="role" className="text-xs font-semibold">
-                        Role <span className="text-red-500">*</span>
+                      <Label htmlFor="role" className="text-xs font-semibold text-foreground">
+                        Role <span className="text-destructive">*</span>
                       </Label>
                       <Select
                         value={inviteRole}
                         onValueChange={(value: "ADMIN" | "AGENT") => setInviteRole(value)}
                       >
-                        <SelectTrigger className="w-full bg-white mt-1.5 text-xs">
+                        <SelectTrigger className="w-full bg-background mt-1.5 text-xs">
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
@@ -215,14 +215,14 @@ export default function EmployeesPage() {
                       <>
                         {!isEmployeeMode ? (
                           <div>
-                            <Label htmlFor="department" className="text-xs font-semibold">
-                              Predefined Department <span className="text-red-500">*</span>
+                            <Label htmlFor="department" className="text-xs font-semibold text-foreground">
+                              Predefined Department <span className="text-destructive">*</span>
                             </Label>
                             <Select
                               value={inviteDepartmentId}
                               onValueChange={(val) => setInviteDepartmentId(val)}
                             >
-                              <SelectTrigger className="w-full bg-white mt-1.5 text-xs">
+                              <SelectTrigger className="w-full bg-background mt-1.5 text-xs">
                                 <SelectValue placeholder="Select department to map agent to" />
                               </SelectTrigger>
                               <SelectContent>
@@ -233,14 +233,14 @@ export default function EmployeesPage() {
                                 ))}
                               </SelectContent>
                             </Select>
-                            <p className="text-[11px] text-slate-500 mt-1">
+                            <p className="text-[11px] text-muted-foreground mt-1">
                               The invited agent will automatically be mapped to this department upon joining.
                             </p>
                           </div>
                         ) : (
                           <div>
-                            <Label htmlFor="title" className="text-xs font-semibold">
-                              Employee Title <span className="text-red-500">*</span>
+                            <Label htmlFor="title" className="text-xs font-semibold text-foreground">
+                              Employee Title <span className="text-destructive">*</span>
                             </Label>
                             <Input
                               id="title"
@@ -248,9 +248,9 @@ export default function EmployeesPage() {
                               value={inviteTitle}
                               onChange={(e) => setInviteTitle(e.target.value)}
                               required
-                              className="bg-white mt-1.5 text-xs"
+                              className="bg-background mt-1.5 text-xs"
                             />
-                            <p className="text-[11px] text-slate-500 mt-1">
+                            <p className="text-[11px] text-muted-foreground mt-1">
                               Required for Employee-Centric routing so AI can route complaints to this title.
                             </p>
                           </div>
@@ -260,7 +260,7 @@ export default function EmployeesPage() {
 
                     <Button
                       type="submit"
-                      className="w-full bg-[#3d2a1c] hover:bg-[#2a1d14] text-white text-xs font-medium"
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium"
                       disabled={inviteLoading}
                     >
                       {inviteLoading ? "Generating..." : "Generate Invite Link"}
@@ -272,9 +272,9 @@ export default function EmployeesPage() {
           </div>
         </div>
 
-        <Card className="bg-white border-[#EED9C4] shadow-sm">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-[#5a3e2b]">Active Support Agents</CardTitle>
+            <CardTitle className="text-lg font-semibold text-foreground">Active Support Agents</CardTitle>
             <CardDescription>
               Live load counters recalculated in real-time
             </CardDescription>
@@ -288,17 +288,17 @@ export default function EmployeesPage() {
                   placeholder="Search staff members..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 bg-white w-[280px] text-xs"
+                  className="pl-8 bg-background w-[280px] text-xs"
                 />
               </div>
 
-              <Button variant="outline" className="bg-white text-xs">
+              <Button variant="outline" className="text-xs">
                 <Download className="mr-1.5 h-3.5 w-3.5" /> Export List
               </Button>
             </div>
 
             {isLoading ? (
-              <div className="text-center py-10 text-xs text-slate-400">Loading active staff workload...</div>
+              <div className="text-center py-10 text-xs text-muted-foreground">Loading active staff workload...</div>
             ) : (
               <EmployeesTable employees={filteredEmployees} onRefresh={refetch} />
             )}
